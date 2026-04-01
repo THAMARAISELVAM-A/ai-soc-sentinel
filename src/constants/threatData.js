@@ -24,10 +24,10 @@ export const SEV_COLOR = {
 };
 
 export const LAYERS_DB = {
-  ddos: Array.from({length: 40}).map((_,i) => ({ lat: (Math.random()-0.5)*160, lng: (Math.random()-0.5)*360, type: "DDoS Botnet", color: "#f97316", rad: 0.6 })),
-  malware: Array.from({length: 25}).map((_,i) => ({ lat: (Math.random()-0.5)*160, lng: (Math.random()-0.5)*360, type: "Malware Ops", color: "#ef4444", rad: 0.8 })),
-  centers: Array.from({length: 15}).map((_,i) => ({ lat: (Math.random()-0.5)*160, lng: (Math.random()-0.5)*360, type: "Data Center Phase", color: "#3b82f6", rad: 0.4 })),
-  outages: Array.from({length: 5}).map((_,i) => ({ lat: (Math.random()-0.5)*160, lng: (Math.random()-0.5)*360, type: "Kinetic Outage", color: "#a855f7", rad: 1.0 }))
+  ddos: Array.from({length: 40}).map(() => ({ lat: (Math.random()-0.5)*160, lng: (Math.random()-0.5)*360, type: "DDoS Botnet", color: "#f97316", rad: 0.6 })),
+  malware: Array.from({length: 25}).map(() => ({ lat: (Math.random()-0.5)*160, lng: (Math.random()-0.5)*360, type: "Malware Ops", color: "#ef4444", rad: 0.8 })),
+  centers: Array.from({length: 15}).map(() => ({ lat: (Math.random()-0.5)*160, lng: (Math.random()-0.5)*360, type: "Data Center Phase", color: "#3b82f6", rad: 0.4 })),
+  outages: Array.from({length: 5}).map(() => ({ lat: (Math.random()-0.5)*160, lng: (Math.random()-0.5)*360, type: "Kinetic Outage", color: "#a855f7", rad: 1.0 }))
 };
 
 export const MOCK_COORD = Object.values(LAYERS_DB).flat();

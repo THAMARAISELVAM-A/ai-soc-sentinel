@@ -1,8 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 
-export function useL2Forecaster({ feed, simulationMode, apiKey, selectedModel }) {
+export function useL2Forecaster({ feed, simulationMode, apiKey, selectedModel, liveMode, liveSpeed }) {
   const [forecast, setForecast] = useState(null);
-  const forecastIntervalRef = useRef(null);
 
   const generateForecast = useCallback(async () => {
     if (feed.length < 5) return;
@@ -32,17 +31,15 @@ export function useL2Forecaster({ feed, simulationMode, apiKey, selectedModel })
     } catch(e) { console.error("Forecast Error", e); }
   }, [feed, simulationMode, apiKey, selectedModel]);
 
-  // Handle automatic interval when scanning is active
-  const startForecaster = (interval) => {
-     forecastIntervalRef.current = setInterval(generateForecast, interval);
-  };
-  const stopForecaster = () => {
-     clearInterval(forecastIntervalRef.current);
-  };
-
   useEffect(() => {
-    return () => clearInterval(forecastIntervalRef.current);
-  }, []);
+    if (!liveMode) return;
 
-  return { forecast, generateForecast, startForecaster, stopForecaster };
+    const interval = setInterval(generateForecast, liveSpeed * 4); // Forecast every 4 scan cycles
+    return () => {
+       clearInterval(interval);
+       setForecast(null);
+    };
+  }, [liveMode, liveSpeed, generateForecast]);
+
+  return { forecast, generateForecast };
 }

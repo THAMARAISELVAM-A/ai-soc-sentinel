@@ -1,0 +1,37 @@
+
+> ai-anomaly-detector@0.0.0 lint
+> eslint .
+
+
+C:\Users\Asus\Documents\Playground\repo-temp\src\App.jsx
+   1:39  error    'useCallback' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                         no-unused-vars
+  13:18  error    'setApiKey' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                  no-unused-vars
+  17:25  error    'setSelectedModel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                           no-unused-vars
+  29:24  error    'setActiveLayers' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                            no-unused-vars
+  37:11  error    'forecast' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                   no-unused-vars
+  37:21  error    'generateForecast' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                           no-unused-vars
+  46:6   warning  React Hook useEffect has missing dependencies: 'startForecaster' and 'stopForecaster'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  59:16  error    'e' is defined but never used                                                                                                              no-unused-vars
+  89:9   error    'handleExportSignatures' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                     no-unused-vars
+
+C:\Users\Asus\Documents\Playground\repo-temp\src\components\GlobeLayer.jsx
+   1:27  error  'useEffect' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+   1:38  error  'useRef' is defined but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  36:20  error  't' is defined but never used                                                     no-unused-vars
+
+C:\Users\Asus\Documents\Playground\repo-temp\src\constants\threatData.js
+  27:39  error  '_' is defined but never used  no-unused-vars
+  27:41  error  'i' is defined but never used  no-unused-vars
+  28:42  error  '_' is defined but never used  no-unused-vars
+  28:44  error  'i' is defined but never used  no-unused-vars
+  29:42  error  '_' is defined but never used  no-unused-vars
+  29:44  error  'i' is defined but never used  no-unused-vars
+  30:41  error  '_' is defined but never used  no-unused-vars
+  30:43  error  'i' is defined but never used  no-unused-vars
+
+C:\Users\Asus\Documents\Playground\repo-temp\src\hooks\useAnomalyEngine.js
+   4:44  error  'selectedModel' is defined but never used                                                          no-unused-vars
+  14:9   error  'buildSystemPrompt' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+Γ£û 22 problems (21 errors, 1 warning)
+
