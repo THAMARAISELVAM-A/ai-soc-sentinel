@@ -1,22 +1,25 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Target, Map, Crosshair } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import * as topojson from "topojson-client";
+
 import "./App.css";
 
 // ── CUSTOM MODULES ──────────────────────────────────────────
-import { DEFAULT_SIGNATURES, LAYERS_DB } from "./constants/threatData";
-import { useAnomalyEngine } from "./hooks/useAnomalyEngine";
-import { useL2Forecaster } from "./hooks/useL2Forecaster";
-import { GlobeLayer } from "./components/GlobeLayer";
+import { DEFAULT_SIGNATURES, LAYERS_DB } from "./constants/threatData.js";
+import { useAnomalyEngine } from "./hooks/useAnomalyEngine.js";
+import { useL2Forecaster } from "./hooks/useL2Forecaster.js";
+import { GlobeLayer } from "./components/GlobeLayer.jsx";
 
 // ── NEW MODULAR COMPONENTS ──────────────────────────────────
-import { DataLake } from "./components/UIPanels/DataLake";
-import { Header } from "./components/HUD/Header";
-import { RiskPanel } from "./components/HUD/RiskPanel";
-import { PredictivePanel } from "./components/HUD/PredictivePanel";
-import { IntelligencePanel } from "./components/HUD/IntelligencePanel";
-import { StatsPanel } from "./components/HUD/StatsPanel";
-import { SettingsOverlay } from "./components/Modals/SettingsOverlay";
-import { OSINTModal } from "./components/Modals/OSINTModal";
+import { DataLake } from "./components/UIPanels/DataLake.jsx";
+import { Header } from "./components/HUD/Header.jsx";
+import { RiskPanel } from "./components/HUD/RiskPanel.jsx";
+import { PredictivePanel } from "./components/HUD/PredictivePanel.jsx";
+import { IntelligencePanel } from "./components/HUD/IntelligencePanel.jsx";
+import { StatsPanel } from "./components/HUD/StatsPanel.jsx";
+import { SettingsOverlay } from "./components/Modals/SettingsOverlay.jsx";
+import { OSINTModal } from "./components/Modals/OSINTModal.jsx";
 
 export default function AnomalyDetector() {
   const [apiKey] = useState(() => localStorage.getItem("anthropic_api_key") || "");
@@ -54,11 +57,9 @@ export default function AnomalyDetector() {
     fetch("https://unpkg.com/world-atlas@2.0.2/countries-110m.json")
       .then(res => res.json())
       .then(topoData => {
-         import("topojson-client").then(topojson => {
-            const geoJson = topojson.feature(topoData, topoData.objects.countries);
-            setCountries(geoJson);
-         });
-      }).catch(() => console.log("Map Load Failed."));
+         const geoJson = topojson.feature(topoData, topoData.objects.countries);
+         setCountries(geoJson);
+      }).catch(() => console.error("Map Data Synchronization Failed."));
   }, []);
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export default function AnomalyDetector() {
 
   // ── DYNAMIC THEMING ──────────────────────
   const isAlertActive = feed[0]?.is_anomaly && (feed[0]?.severity === "critical" || feed[0]?.severity === "high");
+  const themeClass = `theme-${activeDomain.toLowerCase()}`;
 
   const processOsintIntelligence = async () => {
     if(!osintText.trim()) return;
@@ -97,11 +99,12 @@ export default function AnomalyDetector() {
   };
 
   return (
-    <div className={`wm-main-wrapper ${isAlertActive ? 'alert-active' : ''}`}>
+    <div className={`wm-main-wrapper ${themeClass} ${isAlertActive ? 'alert-active' : ''}`}>
       
       <GlobeLayer 
         dim={dim} countries={countries} arcs={arcs} rings={rings} 
         mapPoints={mapPoints} liveMode={liveMode} globeRef={globeRef} 
+        activeDomain={activeDomain}
       />
 
       <div className="wm-ui-layer">
@@ -112,20 +115,35 @@ export default function AnomalyDetector() {
           toggleLive={toggleLive} setShowSettings={setShowSettings} 
         />
 
-        <div className="wm-panel-left">
+        <motion.div 
+          className="wm-panel-left"
+          initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        >
            <RiskPanel isAlertActive={isAlertActive} feed={feed} />
-           <PredictivePanel forecast={forecast} />
+           <AnimatePresence mode="wait">
+             {forecast && (
+               <motion.div key="forecast" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                 <PredictivePanel forecast={forecast} />
+               </motion.div>
+             )}
+           </AnimatePresence>
            <IntelligencePanel 
              intelTab={intelTab} setIntelTab={setIntelTab} 
              activeDomain={activeDomain} signatures={signatures} 
            />
-        </div>
+        </motion.div>
 
-        <DataLake 
-          filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} 
-          searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
-          activeDomain={activeDomain}
-        />
+        <motion.div 
+          initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        >
+          <DataLake 
+            filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} 
+            searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
+            activeDomain={activeDomain}
+          />
+        </motion.div>
 
         <StatsPanel 
           activeDomain={activeDomain} feed={feed} 
