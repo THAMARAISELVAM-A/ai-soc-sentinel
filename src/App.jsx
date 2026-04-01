@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Target, Map, Crosshair } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import * as topojson from "topojson-client";
 
 import "./App.css";
@@ -115,35 +115,22 @@ export default function AnomalyDetector() {
           toggleLive={toggleLive} setShowSettings={setShowSettings} 
         />
 
-        <motion.div 
-          className="wm-panel-left"
-          initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-        >
+        <div className="wm-panel-left">
            <RiskPanel isAlertActive={isAlertActive} feed={feed} />
-           <AnimatePresence mode="wait">
-             {forecast && (
-               <motion.div key="forecast" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                 <PredictivePanel forecast={forecast} />
-               </motion.div>
-             )}
-           </AnimatePresence>
+           {forecast ? <PredictivePanel forecast={forecast} /> : null}
            <IntelligencePanel 
              intelTab={intelTab} setIntelTab={setIntelTab} 
              activeDomain={activeDomain} signatures={signatures} 
            />
-        </motion.div>
+        </div>
 
-        <motion.div 
-          initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-        >
+        <div className="wm-panel-right">
           <DataLake 
             filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} 
             searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
             activeDomain={activeDomain}
           />
-        </motion.div>
+        </div>
 
         <StatsPanel 
           activeDomain={activeDomain} feed={feed} 
