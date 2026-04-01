@@ -48,11 +48,12 @@ export function GlobeLayer({ dim, countries, arcs, rings, mapPoints, liveMode, g
         hexSideColor={d => `${d.points[0].color}88`}
         hexBinMerge={true}
         
-        // Floating 3D Orbits (Labels)
+        // Floating 3D Orbits (Labels) - SHRUNK BY 40% (HOTFIX)
         htmlElementsData={mapPoints}
         htmlElement={d => {
           const el = document.createElement('div');
-          el.innerHTML = `<div style="background:rgba(0,0,0,0.85); border:1px solid ${d.color}; padding:6px 10px; border-radius:4px; color:#c9d1d9; font-family:monospace; font-size:11px; box-shadow:0 0 10px ${d.color}44; white-space: nowrap;"><b style="color:#e6edf3; font-size:12px;">${d.type}</b><br/><span style="color:#8b949e; font-size:9px;">IP: ${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}</span></div>`;
+          // Reduced font-size to 8px and padding to 4px
+          el.innerHTML = `<div style="background:rgba(0,0,0,0.9); border:0.5px solid ${d.color}; padding:4px 6px; border-radius:2px; color:#e1e1e1; font-family:monospace; font-size:8px; box-shadow:0 0 10px ${d.color}44; white-space: nowrap;"><b style="color:white; font-size:9px; letter-spacing:0.05em;">${d.type}</b><br/><span style="color:#666; font-size:7px;">IP: ${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}</span></div>`;
           el.style.pointerEvents = 'none';
           return el;
         }}

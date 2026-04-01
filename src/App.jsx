@@ -107,21 +107,23 @@ export default function AnomalyDetector() {
   return (
     <div className={`wm-main-wrapper ${isAlertActive ? 'alert-active' : ''}`}>
       
+      {/* ── GLOBE RENDERER (BOTTOM LAYER) ── */}
       <GlobeLayer 
         dim={dim} countries={countries} arcs={arcs} rings={rings} 
         mapPoints={mapPoints} liveMode={liveMode} globeRef={globeRef} 
       />
 
+      {/* ── HUD LAYER (TOP LAYER) ── */}
       <div className="wm-ui-layer">
         
         {/* HEADER */}
         <div className="wm-header">
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center" }}>
             <div className="wm-logo-box"><GlobeIcon size={20} /></div>
-            <div className="wm-title">Operation Sentinel <span className="badge-tag" style={{background: "rgba(239,68,68,0.1)", color: "#ef4444", marginLeft: 10}}>L2 SOC</span></div>
+            <div className="wm-title">Operation Sentinel <span className="badge-tag" style={{background: "rgba(239,68,68,0.1)", color: "#ef4444", marginLeft: 12}}>L2 SOC</span></div>
           </div>
           
-          <div className="wm-header-actions" style={{display: "flex", gap: 12}}>
+          <div className="wm-header-actions">
             <button onClick={() => setShowOsintPanel(true)} className="btn-console"><BookOpen size={14}/> INGEST OSINT</button>
             <button onClick={toggleLive} className={`btn-console ${liveMode ? 'active' : ''}`}>
                {liveMode ? <><Activity size={14} /> HALT SCANNING</> : <><Zap size={14} /> INITIALIZE SCAN</>}
@@ -133,20 +135,20 @@ export default function AnomalyDetector() {
         {/* LEFT HUD (FORECASTER & LAYERS) */}
         <div className="wm-panel-left">
           {forecast && (
-             <div className="glass-panel" style={{ padding: 24, borderLeft: "4px solid #ef4444", background: "rgba(239,68,68,0.1)" }}>
+             <div className="glass-panel" style={{ padding: 24, borderLeft: "4px solid #ef4444", background: "rgba(239,68,68,0.08)" }}>
                 <div className="panel-label">L2 THREAT FORECAST</div>
                 <div style={{ color: "white", fontSize: 18, fontWeight: 800, marginBottom: 12, fontFamily: "monospace" }}>{forecast.predicted_attack}</div>
                 <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-                   <span className="badge-tag" style={{background:"rgba(239,68,68,0.2)", color:"#fca5a5"}}>ETA: {forecast.eta}</span>
-                   <span className="badge-tag" style={{background:"rgba(245,158,11,0.2)", color:"#fcd34d"}}>PROB: {forecast.probability}%</span>
+                   <span className="badge-tag" style={{background:"rgba(239,68,68,0.15)", color:"#fca5a5"}}>ETA: {forecast.eta}</span>
+                   <span className="badge-tag" style={{background:"rgba(245,158,11,0.15)", color:"#fcd34d"}}>PROB: {forecast.probability}%</span>
                 </div>
-                <div style={{ fontSize: 10, color: "#8b949e", lineHeight: 1.5 }}>{forecast.explanation}</div>
+                <div style={{ fontSize: 10, color: "#8b949e", lineHeight: 1.5, opacity: 0.8 }}>{forecast.explanation}</div>
              </div>
           )}
 
           <div className="glass-panel" style={{ padding: 24 }}>
             <div className="panel-label">DATA LAYERS</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {["ddos", "malware", "centers"].map(l => (
                  <div key={l} onClick={()=>setActiveLayers(prev => prev.includes(l) ? prev.filter(x=>x!==l) : [...prev, l])} className={`layer-card ${activeLayers.includes(l) ? "active":""}`}>
                     {l === 'ddos' ? <Target size={14} color="#f97316"/> : l === 'malware' ? <ShieldAlert size={14} color="#ef4444"/> : <Database size={14} color="#3b82f6"/>}
@@ -164,7 +166,7 @@ export default function AnomalyDetector() {
         />
 
         {/* BOTTOM HUD (STATS) */}
-        <div className="wm-panel-bottom">
+        <div className="wm-panel-bottom glass-panel">
            <div className="stat-box"><span>SPLUNK INDEX SIZE</span> <strong>{feed.length}</strong></div>
            <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
            <div className="stat-box"><span>ACTIVE POLICIES</span> <strong>{signatures.length}</strong></div>
@@ -183,12 +185,12 @@ export default function AnomalyDetector() {
 
       {/* OVERLAYS (MODALS) */}
       {showSettings && (
-        <div className="glass-panel settings-overlay" style={{ position: "absolute", top: 100, right: 2.5, width: 340, zIndex: 1000 }}>
+        <div className="glass-panel settings-overlay">
           <div className="settings-header">SOC AGENT PARAMETERS <button onClick={() => setShowSettings(false)}>✕</button></div>
           <div className="settings-section">
             <div className="btn-group" style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleExportSignatures} className="btn-action"><Download size={14}/> EXPORT</button>
-              <button onClick={() => fileInputRef.current?.click()} className="btn-action"><Upload size={14}/> IMPORT</button>
+              <button onClick={handleExportSignatures} className="btn-action"><Download size={12}/> EXPORT</button>
+              <button onClick={() => fileInputRef.current?.click()} className="btn-action"><Upload size={12}/> IMPORT</button>
               <input type="file" ref={fileInputRef} onChange={handleImportSignatures} accept=".json" style={{ display: "none" }} />
             </div>
           </div>
@@ -207,7 +209,7 @@ export default function AnomalyDetector() {
       )}
 
       {showOsintPanel && (
-        <div className="wm-osint-modal">
+        <div className="wm-osint-modal" onClick={(e) => e.target.className === 'wm-osint-modal' && setShowOsintPanel(false)}>
            <div className="glass-panel modal-box">
               <div className="modal-header">OSINT CO-PILOT <button onClick={() => setShowOsintPanel(false)}>✕</button></div>
               <textarea value={osintText} onChange={e=>setOsintText(e.target.value)} placeholder="Paste threat report clipping here..." rows={8} style={{fontFamily: "monospace", fontSize: 11}} />
