@@ -15,7 +15,6 @@ export default function AnomalyDetector() {
   const [dim, setDim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [signatures, setSignatures] = useState(DEFAULT_SIGNATURES);
   const [selectedModel, setSelectedModel] = useState("claude-3-5-sonnet-20241022");
-  const [hoverD, setHoverD] = useState();
   const [showOsintPanel, setShowOsintPanel] = useState(false);
   const [osintText, setOsintText] = useState("");
   const [isOsintParsing, setIsOsintParsing] = useState(false);
@@ -41,7 +40,6 @@ export default function AnomalyDetector() {
     else stopForecaster();
   }, [liveMode, liveSpeed]);
 
-  // ── GLOBE & MAP LOGIC ───────────────────────────────────────
   const globeRef = useRef();
   const [countries, setCountries] = useState({ features: [] });
   
@@ -73,7 +71,6 @@ export default function AnomalyDetector() {
 
   useEffect(() => { localStorage.setItem("anthropic_api_key", apiKey); }, [apiKey]);
 
-  // Filtering System
   const filteredFeed = useMemo(() => feed.filter(f => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -84,11 +81,10 @@ export default function AnomalyDetector() {
 
   const mapPoints = useMemo(() => activeLayers.flatMap(l => LAYERS_DB[l] || []), [activeLayers]);
 
-  // ── DYNAMIC THEMING (ALERT STATUS) ──────────────────────────
+  // ── DYNAMIC THEMING ──────────────────────
   const lastAlert = feed[0];
   const isAlertActive = lastAlert?.is_anomaly && (lastAlert?.severity === "critical" || lastAlert?.severity === "high");
 
-  // ── HANDLERS ────────────────────────────────────────────────
   const handleExportSignatures = () => {
     const el = document.createElement("a"); el.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(signatures, null, 2)); el.download = "signatures.json"; el.click();
   };
@@ -101,7 +97,6 @@ export default function AnomalyDetector() {
   const processOsintIntelligence = async () => {
     if(!osintText.trim()) return;
     setIsOsintParsing(true);
-    // ... OSINT Logic (kept in hook for brevity if this grows)
     if (simulationMode || !apiKey) {
       await new Promise(r => setTimeout(r, 1500));
       setSignatures(prev => [...prev, { id: Date.now(), category: "OSINT Auto-Discovered", severity: "critical", mitre: "T-AUTO", pattern: "Dynamic pattern", active: true }]);
@@ -112,74 +107,69 @@ export default function AnomalyDetector() {
   return (
     <div className={`wm-main-wrapper ${isAlertActive ? 'alert-active' : ''}`}>
       
-      {/* 3D GLOBE LAYER */}
       <GlobeLayer 
         dim={dim} countries={countries} arcs={arcs} rings={rings} 
         mapPoints={mapPoints} liveMode={liveMode} globeRef={globeRef} 
       />
 
-      {/* UI OVERLAY */}
       <div className="wm-ui-layer">
         
         {/* HEADER */}
         <div className="wm-header">
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div className="wm-logo-box"><GlobeIcon size={18} /></div>
-            <div>
-              <div className="wm-title">Operation Sentinel <span className="l2-badge">L2 SOC</span></div>
-            </div>
+            <div className="wm-logo-box"><GlobeIcon size={20} /></div>
+            <div className="wm-title">Operation Sentinel <span className="badge-tag" style={{background: "rgba(239,68,68,0.1)", color: "#ef4444", marginLeft: 10}}>L2 SOC</span></div>
           </div>
           
-          <div className="wm-header-actions">
-            <button onClick={() => setShowOsintPanel(true)} className="glass-panel btn-osint"><BookOpen size={14}/> INGEST OSINT</button>
-            <button onClick={toggleLive} className={`glass-panel btn-scan ${liveMode ? 'scanning' : ''}`}>
-              {liveMode ? <><Activity size={14} /> HALT SCANNING</> : <><Zap size={14} /> INITIALIZE SCAN</>}
+          <div className="wm-header-actions" style={{display: "flex", gap: 12}}>
+            <button onClick={() => setShowOsintPanel(true)} className="btn-console"><BookOpen size={14}/> INGEST OSINT</button>
+            <button onClick={toggleLive} className={`btn-console ${liveMode ? 'active' : ''}`}>
+               {liveMode ? <><Activity size={14} /> HALT SCANNING</> : <><Zap size={14} /> INITIALIZE SCAN</>}
             </button>
-            <button onClick={() => setShowSettings(!showSettings)} className="glass-panel btn-settings"><Settings size={16}/></button>
+            <button onClick={() => setShowSettings(!showSettings)} className="btn-console"><Settings size={16}/></button>
           </div>
         </div>
 
-        {/* PANELS */}
-        <div className="wm-main-content">
-          <div className="wm-panel-left">
-            {forecast && (
-               <div className="glass-panel forecast-panel">
-                  <div className="forecast-header"><Skull size={14}/> L2 THREAT FORECAST</div>
-                  <div className="forecast-title">{forecast.predicted_attack}</div>
-                  <div className="forecast-meta">
-                    <span className="badge-eta">ETA: {forecast.eta}</span>
-                    <span className="badge-prob">PROB: {forecast.probability}%</span>
-                  </div>
-                  <div className="forecast-desc">{forecast.explanation}</div>
-               </div>
-            )}
+        {/* LEFT HUD (FORECASTER & LAYERS) */}
+        <div className="wm-panel-left">
+          {forecast && (
+             <div className="glass-panel" style={{ padding: 24, borderLeft: "4px solid #ef4444", background: "rgba(239,68,68,0.1)" }}>
+                <div className="panel-label">L2 THREAT FORECAST</div>
+                <div style={{ color: "white", fontSize: 18, fontWeight: 800, marginBottom: 12, fontFamily: "monospace" }}>{forecast.predicted_attack}</div>
+                <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                   <span className="badge-tag" style={{background:"rgba(239,68,68,0.2)", color:"#fca5a5"}}>ETA: {forecast.eta}</span>
+                   <span className="badge-tag" style={{background:"rgba(245,158,11,0.2)", color:"#fcd34d"}}>PROB: {forecast.probability}%</span>
+                </div>
+                <div style={{ fontSize: 10, color: "#8b949e", lineHeight: 1.5 }}>{forecast.explanation}</div>
+             </div>
+          )}
 
-            <div className="glass-panel layer-panel">
-              <div className="panel-label">DATA LAYERS</div>
-              <div className="layer-list">
-                {["ddos", "malware", "centers"].map(l => (
-                   <div key={l} onClick={()=>setActiveLayers(prev => prev.includes(l) ? prev.filter(x=>x!==l) : [...prev, l])} className={`layer-card ${activeLayers.includes(l) ? "active":""}`}>
-                      {l === 'ddos' ? <Target size={14} color="#f97316"/> : l === 'malware' ? <ShieldAlert size={14} color="#ef4444"/> : <Database size={14} color="#3b82f6"/>}
-                      <span className="layer-name">{l.toUpperCase()} REGIONS</span>
-                   </div>
-                ))}
-              </div>
+          <div className="glass-panel" style={{ padding: 24 }}>
+            <div className="panel-label">DATA LAYERS</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {["ddos", "malware", "centers"].map(l => (
+                 <div key={l} onClick={()=>setActiveLayers(prev => prev.includes(l) ? prev.filter(x=>x!==l) : [...prev, l])} className={`layer-card ${activeLayers.includes(l) ? "active":""}`}>
+                    {l === 'ddos' ? <Target size={14} color="#f97316"/> : l === 'malware' ? <ShieldAlert size={14} color="#ef4444"/> : <Database size={14} color="#3b82f6"/>}
+                    <span className="layer-name">{l.toUpperCase()} CLUSTERS</span>
+                 </div>
+              ))}
             </div>
           </div>
-
-          <DataLake 
-            filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} 
-            searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
-          />
         </div>
 
-        {/* BOTTOM STATS */}
+        {/* RIGHT HUD (DATA LAKE) */}
+        <DataLake 
+          filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} 
+          searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
+        />
+
+        {/* BOTTOM HUD (STATS) */}
         <div className="wm-panel-bottom">
-          <div className="stat-item"><span>SPLUNK INDEX:</span> <strong>{feed.length}</strong></div>
-          <div className="stat-sep" />
-          <div className="stat-item"><span>POLICIES:</span> <strong>{signatures.length}</strong></div>
-          <div className="stat-sep" />
-          <div className="stat-item"><span>ENGINE:</span> <strong className={simulationMode ? "txt-warn" : "txt-success"}>{simulationMode ? "SIMULATION" : "LIVE CLAUDE"}</strong></div>
+           <div className="stat-box"><span>SPLUNK INDEX SIZE</span> <strong>{feed.length}</strong></div>
+           <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
+           <div className="stat-box"><span>ACTIVE POLICIES</span> <strong>{signatures.length}</strong></div>
+           <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
+           <div className="stat-box"><span>AI ENGINE MODE</span> <strong style={{ color: simulationMode ? "#f59e0b" : "#22c55e" }}>{simulationMode ? "SIMULATION" : "LIVE CLAUDE"}</strong></div>
         </div>
 
         {/* CAMERA CONTROLS */}
@@ -191,12 +181,12 @@ export default function AnomalyDetector() {
 
       </div>
 
-      {/* SETTINGS OVERLAY */}
+      {/* OVERLAYS (MODALS) */}
       {showSettings && (
-        <div className="glass-panel settings-overlay">
-          <div className="settings-header">AGENT CONFIGURATION <button onClick={() => setShowSettings(false)}>✕</button></div>
+        <div className="glass-panel settings-overlay" style={{ position: "absolute", top: 100, right: 2.5, width: 340, zIndex: 1000 }}>
+          <div className="settings-header">SOC AGENT PARAMETERS <button onClick={() => setShowSettings(false)}>✕</button></div>
           <div className="settings-section">
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="btn-group" style={{ display: "flex", gap: 8 }}>
               <button onClick={handleExportSignatures} className="btn-action"><Download size={14}/> EXPORT</button>
               <button onClick={() => fileInputRef.current?.click()} className="btn-action"><Upload size={14}/> IMPORT</button>
               <input type="file" ref={fileInputRef} onChange={handleImportSignatures} accept=".json" style={{ display: "none" }} />
@@ -205,34 +195,24 @@ export default function AnomalyDetector() {
           <div className="settings-section">
              <div className="label">INFERENCE MODE</div>
              <div className="btn-group">
-                <button onClick={() => setSimulationMode(true)} className={simulationMode ? 'active' : ''}>MOCK</button>
-                <button onClick={() => setSimulationMode(false)} className={!simulationMode ? 'active' : ''}>CLAUDE</button>
+                <button onClick={() => setSimulationMode(true)} className={simulationMode ? 'active' : ''}>SIMULATION</button>
+                <button onClick={() => setSimulationMode(false)} className={!simulationMode ? 'active' : ''}>LIVE ENGINE</button>
              </div>
           </div>
-          {!simulationMode && (
-            <div className="settings-section">
-               <input type="password" placeholder="API KEY" value={apiKey} onChange={e => setApiKey(e.target.value)} />
-               <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} style={{marginTop:8}}>
-                  <option value="claude-3-5-sonnet-20241022">Sonnet 3.5</option>
-                  <option value="claude-3-opus-20240229">Opus 3</option>
-               </select>
-            </div>
-          )}
           <div className="settings-section">
-             <div className="label">POLLING: {Math.round(liveSpeed / 1000)}s</div>
+             <div className="label">POLLING SPEED: {Math.round(liveSpeed / 1000)}s</div>
              <input type="range" min="500" max="10000" step="500" value={liveSpeed} onChange={e => setLiveSpeed(Number(e.target.value))} />
           </div>
         </div>
       )}
 
-      {/* OSINT MODAL (simplified) */}
       {showOsintPanel && (
         <div className="wm-osint-modal">
            <div className="glass-panel modal-box">
               <div className="modal-header">OSINT CO-PILOT <button onClick={() => setShowOsintPanel(false)}>✕</button></div>
-              <textarea value={osintText} onChange={e=>setOsintText(e.target.value)} placeholder="Paste threat report..." rows={8} />
+              <textarea value={osintText} onChange={e=>setOsintText(e.target.value)} placeholder="Paste threat report clipping here..." rows={8} style={{fontFamily: "monospace", fontSize: 11}} />
               <button onClick={processOsintIntelligence} disabled={isOsintParsing} className="btn-primary">
-                 {isOsintParsing ? "PARSING..." : "GENERATE POLICIES"}
+                 {isOsintParsing ? "PARSING INTELLIGENCE..." : "AUTONOMOUSLY GENERATE POLICIES"}
               </button>
            </div>
         </div>
