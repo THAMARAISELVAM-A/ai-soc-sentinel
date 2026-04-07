@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars, Html, Line, Points, PointMaterial } from '@react-three/drei';
+import { OrbitControls, Stars, Html, Line, Points, PointMaterial, Trail, Sphere } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, Globe, Activity, AlertTriangle, Search, 
@@ -8,59 +8,70 @@ import {
   ChevronRight, Play, Pause, RefreshCw, Settings,
   Maximize2, Minimize2, Download, Upload, Wifi,
   Crosshair, Target, Radar, MapPin, Clock, TrendingUp,
-  BarChart3, PieChart, Layers, GitMerge, Cpu as Processor
+  BarChart3, PieChart, Layers, GitMerge, Cpu as Processor,
+  Brain, MessageSquare, Sparkles, WifiOff
 } from 'lucide-react';
+import { useWebSocket } from './hooks/useWebSocket';
 import './App.css';
 
-// 3D Globe Component
-function Globe3D({ alertMode }) {
+// 3D Globe Component with enhanced visuals
+function Globe3D({ alertMode, attackData }) {
   const globeRef = useRef();
+  const atmosphereRef = useRef();
   
-  useEffect(() => {
+  useFrame((state) => {
     if (globeRef.current) {
-      globeRef.current.rotation.y += 0.001;
+      globeRef.current.rotation.y += 0.0008;
+    }
+    if (atmosphereRef.current) {
+      atmosphereRef.current.rotation.y -= 0.001;
     }
   });
 
   return (
     <group ref={globeRef}>
-      {/* Globe sphere */}
+      {/* Globe sphere with enhanced shader-like material */}
       <mesh>
-        <sphereGeometry args={[2, 64, 64]} />
+        <sphereGeometry args={[2, 128, 128]} />
         <meshPhongMaterial
-          color={alertMode ? '#ef4444' : '#1a1a2e'}
-          emissive={alertMode ? '#ef4444' : '#3b82f6'}
-          emissiveIntensity={0.3}
+          color={alertMode ? '#1a0505' : '#0a0a1a'}
+          emissive={alertMode ? '#ef4444' : '#1e3a5f'}
+          emissiveIntensity={0.2}
           transparent
-          opacity={0.9}
+          opacity={0.95}
           wireframe={false}
         />
       </mesh>
       
       {/* Wireframe overlay */}
       <mesh>
-        <sphereGeometry args={[2.02, 32, 32]} />
+        <sphereGeometry args={[2.02, 64, 64]} />
         <meshBasicMaterial
           color={alertMode ? '#ef4444' : '#3b82f6'}
           wireframe
           transparent
-          opacity={0.15}
+          opacity={0.12}
         />
       </mesh>
 
       {/* Atmosphere glow */}
-      <mesh>
-        <sphereGeometry args={[2.5, 32, 32]} />
+      <mesh ref={atmosphereRef}>
+        <sphereGeometry args={[2.5, 64, 64]} />
         <meshBasicMaterial
           color={alertMode ? '#ef4444' : '#3b82f6'}
           transparent
-          opacity={0.05}
+          opacity={0.04}
           side={2}
         />
       </mesh>
 
+      {/* Attack visualization - orbital trails */}
+      {attackData && attackData.map((attack, i) => (
+        <AttackTrail key={attack.id || i} attack={attack} index={i} />
+      ))}
+
       {/* Random data points on globe */}
-      {Array.from({ length: 50 }).map((_, i) => {
+      {Array.from({ length: 80 }).map((_, i) => {
         const lat = (Math.random() - 0.5) * 160;
         const lon = Math.random() * 360;
         const phi = (90 - lat) * (Math.PI / 180);
@@ -71,11 +82,11 @@ function Globe3D({ alertMode }) {
         
         return (
           <mesh key={i} position={[x, y, z]}>
-            <sphereGeometry args={[0.02, 8, 8]} />
+            <sphereGeometry args={[0.015, 8, 8]} />
             <meshBasicMaterial
               color={alertMode ? '#ef4444' : '#3b82f6'}
               transparent
-              opacity={0.8}
+              opacity={0.6 + Math.random() * 0.4}
             />
           </mesh>
         );
@@ -84,101 +95,230 @@ function Globe3D({ alertMode }) {
   );
 }
 
-// Sample data generators
-const generateIntelData = () => [
-  {
-    id: 1,
-    source: 'CISA',
-    title: 'Critical infrastructure targeted by APT29 group using novel supply chain attack vectors',
-    severity: 'critical',
-    timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString()
-  },
-  {
-    id: 2,
-    source: 'FBI',
-    title: 'Ransomware-as-a-Service operations increase 300% in Q4 2024',
-    severity: 'high',
-    timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString()
-  },
-  {
-    id: 3,
-    source: 'NSA',
-    title: 'Zero-day vulnerability discovered in enterprise VPN solutions',
-    severity: 'high',
-    timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString()
-  },
-  {
-    id: 4,
-    source: 'INTERPOL',
-    title: 'International cybercrime syndicate dismantled in Operation Shadow',
-    severity: 'medium',
-    timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString()
-  }
-];
+// Attack trail visualization component
+function AttackTrail({ attack, index }) {
+  const ref = useRef();
+  const { lat, lon } = attack.location || { lat: (Math.random() - 0.5) * 160, lon: Math.random() * 360 };
+  
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+  const x = 2.1 * Math.sin(phi) * Math.cos(theta);
+  const y = 2.1 * Math.cos(phi);
+  const z = 2.1 * Math.sin(phi) * Math.sin(theta);
 
-const generateLiveEvents = () => [
-  {
-    id: 1,
-    type: 'intrusion',
-    source: '192.168.1.45',
-    target: '10.0.0.12',
-    protocol: 'HTTPS',
-    severity: 'critical',
-    description: 'SQL injection attempt detected on web application firewall',
-    timestamp: new Date().toISOString()
-  },
-  {
-    id: 2,
-    type: 'malware',
-    source: '203.0.113.42',
-    target: '172.16.0.8',
-    protocol: 'HTTP',
-    severity: 'high',
-    description: 'Trojan downloader activity identified in network traffic',
-    timestamp: new Date(Date.now() - 120000).toISOString()
-  },
-  {
-    id: 3,
-    type: 'bruteforce',
-    source: '198.51.100.23',
-    target: '10.0.0.5',
-    protocol: 'SSH',
-    severity: 'medium',
-    description: 'SSH brute force attack from known botnet infrastructure',
-    timestamp: new Date(Date.now() - 300000).toISOString()
-  },
-  {
-    id: 4,
-    type: 'ddos',
-    source: 'Multiple',
-    target: '10.0.0.1',
-    protocol: 'UDP',
-    severity: 'high',
-    description: 'Volumetric DDoS attack mitigated by edge protection',
-    timestamp: new Date(Date.now() - 600000).toISOString()
-  }
-];
+  useFrame((state) => {
+    if (ref.current) {
+      ref.current.material.opacity = 0.3 + Math.sin(state.clock.elapsedTime * 3 + index) * 0.2;
+    }
+  });
+
+  const color = attack.riskScore >= 9 ? '#ef4444' : 
+                attack.riskScore >= 7 ? '#f59e0b' : 
+                attack.riskScore >= 5 ? '#3b82f6' : '#10b981';
+
+  return (
+    <group>
+      <Trail
+        width={1.5}
+        length={4}
+        color={color}
+        attenuation={(t) => t * t}
+      >
+        <mesh ref={ref} position={[x, y, z]}>
+          <sphereGeometry args={[0.04, 16, 16]} />
+          <meshBasicMaterial color={color} transparent opacity={0.8} />
+        </mesh>
+      </Trail>
+      {/* Orbital ring */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[x * 0.5, y * 0.5, z * 0.5]}>
+        <ringGeometry args={[0.3, 0.32, 32]} />
+        <meshBasicMaterial color={color} transparent opacity={0.3} side={2} />
+      </mesh>
+    </group>
+  );
+}
+
+// Radar sweep effect
+function RadarSweep() {
+  const ref = useRef();
+  
+  useFrame((state) => {
+    if (ref.current) {
+      ref.current.rotation.z = state.clock.elapsedTime * 0.5;
+    }
+  });
+
+  return (
+    <mesh ref={ref} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, -2.2]}>
+      <circleGeometry args={[3, 64, 1]} />
+      <meshBasicMaterial
+        color="#3b82f6"
+        transparent
+        opacity={0.03}
+        side={2}
+      />
+    </mesh>
+  );
+}
+
+// AI Analysis Panel Component
+function AIAnalysisPanel({ threat, analysis, isAnalyzing }) {
+  if (!threat) return null;
+
+  return (
+    <motion.div
+      className="intel-card ai-analysis-card"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="intel-source">
+        <Brain size={14} style={{ marginRight: '6px' }} />
+        CLAUDE 3.5 AI ANALYSIS
+        {isAnalyzing && <span className="analyzing-indicator">ANALYZING...</span>}
+      </div>
+      
+      {isAnalyzing ? (
+        <div className="ai-loading">
+          <div className="ai-loading-bar">
+            <div className="ai-loading-progress"></div>
+          </div>
+          <span style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>
+            Processing threat data with Claude 3.5...
+          </span>
+        </div>
+      ) : analysis ? (
+        <div className="ai-analysis-content">
+          <div style={{ 
+            fontSize: '12px', 
+            color: '#e2e8f0', 
+            lineHeight: '1.6',
+            fontFamily: 'var(--mono-font)'
+          }}>
+            {analysis.split('\n').map((line, i) => (
+              <div key={i} style={{ marginBottom: '8px' }}>
+                {line.startsWith('- ') ? (
+                  <span>
+                    <span style={{ color: '#3b82f6', fontWeight: '700' }}>
+                      {line.split(':')[0]}:
+                    </span>
+                    {line.split(':').slice(1).join(':')}
+                  </span>
+                ) : line}
+              </div>
+            ))}
+          </div>
+          <div style={{ 
+            fontSize: '10px', 
+            color: '#64748b', 
+            marginTop: '12px',
+            borderTop: '1px solid var(--glass-border)',
+            paddingTop: '8px'
+          }}>
+            Analyzed at: {new Date().toLocaleTimeString()}
+          </div>
+        </div>
+      ) : (
+        <button 
+          className="btn-console"
+          style={{ marginTop: '12px', width: '100%' }}
+        >
+          <Sparkles size={14} />
+          REQUEST AI ANALYSIS
+        </button>
+      )}
+    </motion.div>
+  );
+}
+
+// Risk Score Indicator
+function RiskScoreIndicator({ score }) {
+  const getColor = (s) => {
+    if (s >= 9) return '#ef4444';
+    if (s >= 7) return '#f59e0b';
+    if (s >= 5) return '#3b82f6';
+    return '#10b981';
+  };
+
+  const getLevel = (s) => {
+    if (s >= 9) return 'CRITICAL';
+    if (s >= 7) return 'HIGH';
+    if (s >= 5) return 'ELEVATED';
+    if (s >= 3) return 'GUARDED';
+    return 'LOW';
+  };
+
+  const color = getColor(score);
+
+  return (
+    <div className="risk-score-indicator">
+      <div className="risk-score-value" style={{ color }}>
+        {score.toFixed(1)}
+      </div>
+      <div className="risk-score-level" style={{ color: `${color}66` }}>
+        {getLevel(score)}
+      </div>
+      <div className="risk-score-bar">
+        <div 
+          className="risk-score-fill" 
+          style={{ 
+            width: `${(score / 10) * 100}%`,
+            background: color
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// WebSocket status indicator
+function WebSocketStatus({ isConnected, sessionId }) {
+  return (
+    <div className="ws-status">
+      <div className={`ws-status-dot ${isConnected ? 'connected' : 'disconnected'}`} />
+      <span style={{ fontSize: '10px', fontFamily: 'var(--mono-font)' }}>
+        {isConnected ? 'ONLINE' : 'OFFLINE'}
+        {sessionId && ` | ${sessionId.slice(0, 8)}`}
+      </span>
+    </div>
+  );
+}
 
 function App() {
   const [alertMode, setAlertMode] = useState(false);
   const [activeDomain, setActiveDomain] = useState('cyber');
-  const [activeTab, setActiveTab] = useState('intel');
-  const [intelData, setIntelData] = useState(generateIntelData());
-  const [liveEvents, setLiveEvents] = useState(generateLiveEvents());
+  const [activeTab, setActiveTab] = useState('live');
+  const [intelData, setIntelData] = useState([]);
+  const [liveEvents, setLiveEvents] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [systemStats, setSystemStats] = useState({
     eventsPerSecond: 1247,
     activeThreats: 23,
     blockedAttacks: 892,
-    uptime: '99.97%'
+    uptime: '99.97%',
+    threatLevel: 'ELEVATED'
   });
   const [consoleOutput, setConsoleOutput] = useState([
-    '[SYSTEM] AI SOC Sentinel v1.0.0 initialized',
-    '[NETWORK] Connected to threat intelligence feeds',
-    '[ANALYSIS] ML models loaded and ready',
+    '[SYSTEM] AI SOC Sentinel v2.0.0 initialized',
+    '[NETWORK] WebSocket bridge connected',
+    '[AI] Claude 3.5 integration active',
+    '[ANALYSIS] Weighted anomaly engine loaded',
     '[MONITOR] Real-time scanning active'
   ]);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [selectedThreat, setSelectedThreat] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [attackData, setAttackData] = useState([]);
+
+  // WebSocket connection
+  const { 
+    isConnected, 
+    sessionId, 
+    lastMessage, 
+    requestAnalysis,
+    getContext 
+  } = useWebSocket();
 
   const domains = [
     { id: 'cyber', icon: Shield, label: 'CYBER', color: '#3b82f6' },
@@ -192,6 +332,48 @@ function App() {
     { id: 'analysis', label: 'AI ANALYSIS' }
   ];
 
+  // Handle WebSocket messages
+  useEffect(() => {
+    if (!lastMessage) return;
+
+    switch (lastMessage.type) {
+      case 'initial_data':
+        setLiveEvents(lastMessage.threats);
+        setAttackData(lastMessage.threats);
+        setSystemStats(prev => ({ ...prev, ...lastMessage.systemStats }));
+        setConsoleOutput(prev => [...prev, '[WS] Initial threat data received']);
+        break;
+
+      case 'new_threat':
+        setLiveEvents(prev => [lastMessage.threat, ...prev.slice(0, 19)]);
+        setAttackData(prev => [...prev.slice(-9), lastMessage.threat]);
+        setSystemStats(prev => ({
+          ...prev,
+          activeThreats: prev.activeThreats + 1,
+          threatLevel: lastMessage.threatLevel
+        }));
+        setConsoleOutput(prev => [...prev, 
+          `[ALERT] ${lastMessage.threat.type.toUpperCase()} detected from ${lastMessage.threat.source}`
+        ]);
+        break;
+
+      case 'ai_analysis':
+        setAiAnalysis(lastMessage.analysis);
+        setIsAnalyzing(false);
+        setConsoleOutput(prev => [...prev, '[AI] Analysis complete from Claude 3.5']);
+        break;
+
+      case 'context_summary':
+        setConsoleOutput(prev => [...prev, 
+          `[CONTEXT] Session: ${lastMessage.threatCount} threats analyzed, ${lastMessage.messageCount} AI exchanges`
+        ]);
+        break;
+
+      default:
+        break;
+    }
+  }, [lastMessage]);
+
   // Simulate real-time data updates
   useEffect(() => {
     const interval = setInterval(() => {
@@ -199,39 +381,20 @@ function App() {
         eventsPerSecond: Math.floor(prev.eventsPerSecond + (Math.random() - 0.5) * 100),
         activeThreats: Math.max(0, prev.activeThreats + Math.floor(Math.random() * 5 - 2)),
         blockedAttacks: prev.blockedAttacks + Math.floor(Math.random() * 10),
-        uptime: prev.uptime
+        uptime: prev.uptime,
+        threatLevel: prev.threatLevel
       }));
 
-      // Randomly add new intel
-      if (Math.random() > 0.7) {
-        const sources = ['CISA', 'FBI', 'NSA', 'INTERPOL', 'Europol', 'NCSC'];
-        const titles = [
-          'New ransomware variant targeting healthcare sector detected',
-          'Critical vulnerability patched in widely-used encryption library',
-          'State-sponsored hacking group identified in supply chain compromise',
-          'Phishing campaign using AI-generated content discovered',
-          'IoT botnet activity surge detected in Eastern Europe'
-        ];
-        
-        const newIntel = {
-          id: Date.now(),
-          source: sources[Math.floor(Math.random() * sources.length)],
-          title: titles[Math.floor(Math.random() * titles.length)],
-          severity: Math.random() > 0.5 ? 'high' : 'medium',
-          timestamp: new Date().toISOString()
-        };
-        
-        setIntelData(prev => [newIntel, ...prev.slice(0, 5)]);
-      }
-
-      // Randomly add console messages
-      if (Math.random() > 0.8) {
+      // Random console messages
+      if (Math.random() > 0.85) {
         const messages = [
           '[SCAN] Network sweep completed - 1,247 hosts analyzed',
           '[AI] Pattern recognition model updated with new signatures',
           '[ALERT] Anomalous traffic pattern detected in segment 7G',
           '[UPDATE] Threat intelligence feed synchronized',
-          '[BLOCK] Malicious payload quarantined successfully'
+          '[BLOCK] Malicious payload quarantined successfully',
+          '[WEIGHT] Anomaly score recalculated for active threats',
+          '[CONTEXT] LLM session context maintained - 12 active threads'
         ];
         const newMessage = messages[Math.floor(Math.random() * messages.length)];
         setConsoleOutput(prev => [...prev.slice(-9), newMessage]);
@@ -256,6 +419,30 @@ function App() {
     ]);
   };
 
+  const handleThreatSelect = (threat) => {
+    setSelectedThreat(threat);
+    setAiAnalysis(null);
+    setIsAnalyzing(true);
+    
+    // Request AI analysis via WebSocket
+    requestAnalysis({
+      ...threat,
+      riskScore: threat.riskScore || 7.0
+    });
+    
+    setConsoleOutput(prev => [...prev, 
+      `[AI] Requesting Claude 3.5 analysis for threat ${threat.id?.slice(0, 8)}`
+    ]);
+  };
+
+  const handleAiAnalysisClick = () => {
+    if (selectedThreat) {
+      setIsAnalyzing(true);
+      setAiAnalysis(null);
+      requestAnalysis(selectedThreat);
+    }
+  };
+
   return (
     <div className={`wm-main-wrapper ${alertMode ? 'alert-active' : ''}`}>
       {/* 3D Globe Container */}
@@ -265,14 +452,15 @@ function App() {
           <pointLight position={[10, 10, 10]} intensity={1} />
           <pointLight position={[-10, -10, -10]} intensity={0.5} />
           <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-          <Globe3D alertMode={alertMode} />
+          <Globe3D alertMode={alertMode} attackData={attackData} />
+          <RadarSweep />
           <OrbitControls 
             enableZoom={true} 
             enablePan={false} 
             minDistance={3} 
             maxDistance={10}
             autoRotate={!alertMode}
-            autoRotateSpeed={0.5}
+            autoRotateSpeed={0.3}
           />
         </Canvas>
       </div>
@@ -281,7 +469,7 @@ function App() {
       <div className="wm-ui-layer">
         {/* Header */}
         <motion.header 
-          className="wm-header glass-panel"
+          className="wm-header glass-panel tactical-corners"
           initial={{ y: -100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
@@ -291,21 +479,25 @@ function App() {
               <Shield size={24} />
             </div>
             <div>
-              <h1 className="wm-title">AI SOC SENTINEL</h1>
-              <p style={{ fontSize: '10px', color: '#64748b', letterSpacing: '0.2em', marginTop: '2px' }}>
-                WORLD MONITOR INTELLIGENCE ENGINE
+              <h1 className="wm-title text-glow">AI SOC SENTINEL</h1>
+              <p style={{ fontSize: '9px', color: '#64748b', letterSpacing: '0.3em', marginTop: '2px', fontFamily: 'var(--mono-font)' }}>
+                WORLD MONITOR INTELLIGENCE ENGINE v2.0
               </p>
             </div>
           </div>
 
           <div className="wm-header-actions">
+            <WebSocketStatus isConnected={isConnected} sessionId={sessionId} />
             <div className="stat-box">
               <span>Events/sec</span>
               <strong>{systemStats.eventsPerSecond.toLocaleString()}</strong>
             </div>
             <div className="stat-box">
               <span>Active Threats</span>
-              <strong style={{ color: alertMode ? '#ef4444' : '#f59e0b' }}>
+              <strong style={{ 
+                color: alertMode ? '#ef4444' : systemStats.activeThreats > 20 ? '#f59e0b' : '#10b981',
+                textShadow: `0 0 10px ${alertMode ? '#ef4444' : '#f59e0b'}40`
+              }}>
                 {systemStats.activeThreats}
               </strong>
             </div>
@@ -317,12 +509,22 @@ function App() {
               <span>Uptime</span>
               <strong>{systemStats.uptime}</strong>
             </div>
+            <div className="stat-box">
+              <span>Threat Level</span>
+              <strong style={{ 
+                color: systemStats.threatLevel === 'CRITICAL' ? '#ef4444' : 
+                         systemStats.threatLevel === 'HIGH' ? '#f59e0b' : '#3b82f6',
+                textShadow: `0 0 15px ${systemStats.threatLevel === 'CRITICAL' ? '#ef4444' : '#f59e0b'}40`
+              }}>
+                {systemStats.threatLevel}
+              </strong>
+            </div>
           </div>
         </motion.header>
 
         {/* Left Panel */}
         <motion.aside 
-          className="wm-panel-left glass-panel"
+          className="wm-panel-left glass-panel tactical-corners"
           initial={{ x: -100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.4 }}
@@ -368,22 +570,28 @@ function App() {
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <h3 className="panel-label">THREAT INTELLIGENCE</h3>
-                  {intelData.map(item => (
-                    <motion.div 
-                      key={item.id}
-                      className="intel-card"
-                      whileHover={{ x: 5 }}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                    >
-                      <div className="intel-source">{item.source}</div>
-                      <div className="intel-title">{item.title}</div>
-                      <div style={{ fontSize: '10px', color: '#64748b', marginTop: '8px' }}>
-                        {new Date(item.timestamp).toLocaleTimeString()}
-                      </div>
-                    </motion.div>
-                  ))}
+                  <h3 className="panel-label text-glow-sm">THREAT INTELLIGENCE</h3>
+                  {intelData.length === 0 ? (
+                    <div style={{ padding: '20px', color: '#64748b', fontSize: '12px', fontFamily: 'var(--mono-font)' }}>
+                      Waiting for intelligence feed...
+                    </div>
+                  ) : (
+                    intelData.map(item => (
+                      <motion.div 
+                        key={item.id}
+                        className="intel-card"
+                        whileHover={{ x: 5 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <div className="intel-source">{item.source}</div>
+                        <div className="intel-title">{item.title}</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '8px' }}>
+                          {new Date(item.timestamp).toLocaleTimeString()}
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
                 </motion.div>
               )}
 
@@ -395,43 +603,40 @@ function App() {
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <h3 className="panel-label">LIVE EVENTS</h3>
-                  {liveEvents.map(item => (
-                    <motion.div 
-                      key={item.id}
-                      className="live-item"
-                      whileHover={{ x: 5 }}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
-                            {item.type.toUpperCase()} | {item.protocol}
+                  <h3 className="panel-label text-glow-sm">LIVE EVENTS</h3>
+                  {liveEvents.length === 0 ? (
+                    <div style={{ padding: '20px', color: '#64748b', fontSize: '12px', fontFamily: 'var(--mono-font)' }}>
+                      Waiting for real-time events...
+                    </div>
+                  ) : (
+                    liveEvents.map(item => (
+                      <motion.div 
+                        key={item.id}
+                        className={`live-item ${selectedThreat?.id === item.id ? 'selected' : ''}`}
+                        whileHover={{ x: 5 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        onClick={() => handleThreatSelect(item)}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+                              {item.type.toUpperCase()} | {item.protocol}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#e2e8f0' }}>
+                              {item.source} → {item.target}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                              {item.description}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#e2e8f0' }}>
-                            {item.source} → {item.target}
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                            {item.description}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                            <RiskScoreIndicator score={item.riskScore || 7.0} />
                           </div>
                         </div>
-                        <div style={{ 
-                          padding: '2px 6px', 
-                          borderRadius: '3px', 
-                          fontSize: '9px',
-                          backgroundColor: item.severity === 'critical' ? '#ef444420' : 
-                                         item.severity === 'high' ? '#f59e0b20' : '#3b82f620',
-                          color: item.severity === 'critical' ? '#ef4444' : 
-                                item.severity === 'high' ? '#f59e0b' : '#3b82f6',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.1em'
-                        }}>
-                          {item.severity}
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    ))
+                  )}
                 </motion.div>
               )}
 
@@ -443,7 +648,7 @@ function App() {
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <h3 className="panel-label">AI ANALYSIS</h3>
+                  <h3 className="panel-label text-glow-sm">AI ANALYSIS</h3>
                   
                   <div className="intel-card">
                     <div className="intel-source">
@@ -479,7 +684,33 @@ function App() {
                         <div style={{ width: '94.8%', height: '100%', background: '#f59e0b', borderRadius: '2px' }}></div>
                       </div>
                     </div>
+
+                    <div style={{ marginTop: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>Claude 3.5 AI</span>
+                        <span style={{ fontSize: '12px', color: '#a855f7' }}>
+                          {isConnected ? 'ONLINE' : 'OFFLINE'}
+                        </span>
+                      </div>
+                      <div style={{ height: '3px', background: '#1e293b', borderRadius: '2px' }}>
+                        <div style={{ 
+                          width: isConnected ? '100%' : '0%', 
+                          height: '100%', 
+                          background: '#a855f7', 
+                          borderRadius: '2px',
+                          transition: 'width 0.5s'
+                        }}></div>
+                      </div>
+                    </div>
                   </div>
+
+                  {selectedThreat && (
+                    <AIAnalysisPanel 
+                      threat={selectedThreat}
+                      analysis={aiAnalysis}
+                      isAnalyzing={isAnalyzing}
+                    />
+                  )}
 
                   <div className="intel-card">
                     <div className="intel-source">
@@ -487,10 +718,10 @@ function App() {
                       ACTIVE DETECTIONS
                     </div>
                     <div style={{ marginTop: '12px', fontSize: '12px', color: '#94a3b8', lineHeight: '1.6' }}>
-                      <div>• 3 suspicious network patterns identified</div>
-                      <div>• 7 potential phishing attempts blocked</div>
-                      <div>• 2 malware signatures detected in transit</div>
-                      <div>• 12 anomalous login attempts flagged</div>
+                      <div>• {liveEvents.filter(e => e.riskScore >= 9).length} critical threats identified</div>
+                      <div>• {liveEvents.filter(e => e.type === 'intrusion').length} intrusion attempts blocked</div>
+                      <div>• {liveEvents.filter(e => e.type === 'malware').length} malware signatures detected</div>
+                      <div>• {liveEvents.length} total active monitoring events</div>
                     </div>
                   </div>
                 </motion.div>
@@ -501,13 +732,13 @@ function App() {
 
         {/* Right Panel */}
         <motion.aside 
-          className="wm-panel-right glass-panel"
+          className="wm-panel-right glass-panel tactical-corners"
           initial={{ x: 100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.6 }}
         >
           <div style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <h3 className="panel-label">COMMAND CENTER</h3>
+            <h3 className="panel-label text-glow-sm">COMMAND CENTER</h3>
 
             {/* Search */}
             <form onSubmit={handleSearch} className="splunk-input-box">
@@ -522,14 +753,14 @@ function App() {
 
             {/* Quick Actions */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '24px' }}>
-              <button className="btn-console" onClick={toggleAlertMode}>
+              <button className="btn-console" onClick={toggleAlertMode} style={alertMode ? { color: '#ef4444', borderColor: '#ef4444' } : {}}>
                 <AlertTriangle size={16} />
                 {alertMode ? 'DEACTIVATE' : 'ALERT MODE'}
               </button>
-              <button className="btn-console">
+              <button className="btn-console" onClick={() => setIsConsoleOpen(!isConsoleOpen)}>
                 <Terminal size={16} />
                 CONSOLE
-                <span className="status-tag" style={{ backgroundColor: '#10b98133', color: '#10b981' }}>
+                <span className="status-tag" style={{ backgroundColor: isConsoleOpen ? '#10b98133' : '#64748b33', color: isConsoleOpen ? '#10b981' : '#64748b' }}>
                   {isConsoleOpen ? 'ON' : 'OFF'}
                 </span>
               </button>
@@ -568,7 +799,9 @@ function App() {
                   lineHeight: '1.6'
                 }}>
                   {consoleOutput.map((line, index) => (
-                    <div key={index}>{line}</div>
+                    <div key={index} className="data-stream">
+                      <span className="line">{line}</span>
+                    </div>
                   ))}
                   <div className="blink">_</div>
                 </div>
@@ -631,10 +864,11 @@ function App() {
           <div className="stat-box" style={{ border: 'none', paddingLeft: '0' }}>
             <span>Threat Level</span>
             <strong style={{ 
-              color: alertMode ? '#ef4444' : '#f59e0b',
-              textShadow: `0 0 20px ${alertMode ? '#ef4444' : '#f59e0b'}40`
+              color: systemStats.threatLevel === 'CRITICAL' ? '#ef4444' : 
+                       systemStats.threatLevel === 'HIGH' ? '#f59e0b' : '#3b82f6',
+              textShadow: `0 0 20px ${systemStats.threatLevel === 'CRITICAL' ? '#ef4444' : '#f59e0b'}40`
             }}>
-              {alertMode ? 'CRITICAL' : 'ELEVATED'}
+              {systemStats.threatLevel}
             </strong>
           </div>
 
@@ -656,6 +890,11 @@ function App() {
           <div className="stat-box" style={{ border: 'none', paddingLeft: '0' }}>
             <span>AI Confidence</span>
             <strong style={{ color: '#10b981' }}>97.3%</strong>
+          </div>
+
+          <div className="stat-box" style={{ border: 'none', paddingLeft: '0' }}>
+            <span>Context</span>
+            <strong style={{ color: '#a855f7' }}>ACTIVE</strong>
           </div>
         </motion.footer>
       </div>

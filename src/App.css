@@ -11,6 +11,137 @@
   --soc-accent-glow: #ef4343cc;
 }
 
+/* Risk Score Indicator */
+.risk-score-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 60px;
+}
+
+.risk-score-value {
+  font-size: 16px;
+  font-weight: 900;
+  font-family: var(--mono-font);
+  text-shadow: 0 0 10px currentColor;
+}
+
+.risk-score-level {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.risk-score-bar {
+  width: 60px;
+  height: 3px;
+  background: #1e293b;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.risk-score-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+/* Selected threat highlight */
+.live-item.selected {
+  border-left-color: #a855f7;
+  background: #a855f710;
+  box-shadow: 0 0 20px #a855f720;
+}
+
+/* AI Analysis Card */
+.ai-analysis-card {
+  border-color: #a855f733;
+  background: #a855f708;
+}
+
+.ai-analysis-card .intel-source {
+  color: #a855f7;
+}
+
+.analyzing-indicator {
+  margin-left: auto;
+  font-size: 9px;
+  color: #f59e0b;
+  animation: pulse-critical 1s infinite;
+}
+
+.ai-loading {
+  padding: 16px;
+  text-align: center;
+}
+
+.ai-loading-bar {
+  width: 100%;
+  height: 4px;
+  background: #1e293b;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.ai-loading-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 30%;
+  background: linear-gradient(90deg, #a855f7, #3b82f6, #a855f7);
+  background-size: 200% 100%;
+  animation: ai-loading-animation 1.5s ease-in-out infinite;
+  border-radius: 2px;
+}
+
+@keyframes ai-loading-animation {
+  0% { left: -30%; }
+  100% { left: 100%; }
+}
+
+.ai-analysis-content {
+  padding: 4px 0;
+}
+
+/* WebSocket Status */
+.ws-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: #ffffff05;
+  border-radius: 4px;
+  border: 1px solid #ffffff0f;
+}
+
+.ws-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
+  transition: all 0.3s;
+}
+
+.ws-status-dot.connected {
+  background: #10b981;
+  box-shadow: 0 0 10px #10b98166;
+  animation: ws-pulse 2s infinite;
+}
+
+.ws-status-dot.disconnected {
+  background: #ef4444;
+  box-shadow: 0 0 10px #ef444466;
+}
+
+@keyframes ws-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.2); }
+}
+
 /* Globe Container */
 .wm-globe-container {
   z-index: 10;
