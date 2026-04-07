@@ -1,0 +1,47 @@
+{
+  "name": "ai-soc-sentinel",
+  "version": "1.0.0",
+  "description": "AI-powered Security Operations Center (SOC) Sentinel - A real-time cybersecurity monitoring and threat intelligence dashboard with 3D globe visualization",
+  "type": "module",
+  "homepage": "https://thamaraiselvam-a.github.io/ai-soc-sentinel/",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext js,jsx",
+    "deploy": "npm run build && npx gh-pages -d dist"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.92.0",
+    "@react-three/fiber": "^8.15.0",
+    "framer-motion": "^10.16.0",
+    "lucide-react": "^0.300.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "gh-pages": "^6.3.0",
+    "vite": "^5.0.0"
+  },
+  "keywords": [
+    "soc",
+    "cybersecurity",
+    "threat-intelligence",
+    "3d-globe",
+    "react",
+    "three.js",
+    "security-dashboard",
+    "ai-monitoring"
+  ],
+  "author": "Thamara Iselvam",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/THAMARAISELVAM-A/ai-soc-sentinel"
+  }
+}

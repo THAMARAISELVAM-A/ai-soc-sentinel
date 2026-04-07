@@ -1,0 +1,137 @@
+/* Fonts */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('../assets/outfit-latin-ext-400-normal.woff2') format('woff2'),
+       url('../assets/outfit-latin-ext-400-normal.woff') format('woff');
+  unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('../assets/outfit-latin-400-normal.woff2') format('woff2'),
+       url('../assets/outfit-latin-400-normal.woff') format('woff');
+  unicode-range: U+00??, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url('../assets/outfit-latin-ext-900-normal.woff2') format('woff2'),
+       url('../assets/outfit-latin-ext-900-normal.woff') format('woff');
+  unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url('../assets/outfit-latin-900-normal.woff2') format('woff2'),
+       url('../assets/outfit-latin-900-normal.woff') format('woff');
+  unicode-range: U+00??, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url('../assets/jetbrains-mono-latin-800-normal.woff2') format('woff2'),
+       url('../assets/jetbrains-mono-latin-800-normal.woff') format('woff');
+  unicode-range: U+00??, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Reset and Base Styles */
+* {
+  box-sizing: border-box;
+  outline: none;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --soc-bg: #010204;
+  --soc-accent: #3b82f6;
+  --soc-accent-glow: #3c83f633;
+  --domain-primary: #3b82f6;
+  --domain-glow: #3c83f626;
+  --domain-highlight: #3c83f699;
+  --glass-border: #ffffff0f;
+  --glass-bg: #040507d1;
+  --alert-red: #ef4444;
+  --alert-glow: #ef43434d;
+  --mono-font: 'JetBrains Mono', monospace;
+  --heading-font: 'Outfit', sans-serif;
+}
+
+.theme-cyber {
+  --domain-primary: #3b82f6;
+  --domain-glow: #3c83f626;
+  --domain-highlight: #3c83f699;
+}
+
+.theme-finance {
+  --domain-primary: #f59e0b;
+  --domain-glow: #f59f0a26;
+  --domain-highlight: #f59f0a99;
+}
+
+.theme-geoint {
+  --domain-primary: #10b981;
+  --domain-glow: #10b78226;
+  --domain-highlight: #10b78299;
+}
+
+body {
+  background-color: var(--soc-bg);
+  font-family: var(--heading-font);
+  color: #e2e8f0;
+  background-image: 
+    radial-gradient(circle at 50% 50%, var(--domain-glow), transparent 70%),
+    linear-gradient(#ffffff01 1px, transparent 1px),
+    linear-gradient(90deg, #ffffff01 1px, transparent 1px);
+  background-size: 100% 100%, 100px 100px, 100px 100px;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* Animations */
+@keyframes scanline {
+  0% { opacity: 0.1; transform: translateY(-100%); }
+  100% { opacity: 0.1; transform: translateY(100%); }
+}
+
+@keyframes holographic {
+  0% { opacity: 0.96; }
+  50% { opacity: 1; filter: brightness(1.1); }
+  100% { opacity: 0.96; }
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--domain-primary);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
