@@ -1,55 +1,98 @@
-import React, { useMemo } from "react";
-import { Search, Activity } from "lucide-react";
-import { SEV_COLOR } from "../../constants/threatData.js";
+import React, { useState } from 'react';
+import { Download, Crosshair } from 'lucide-react';
 
-export function DataLake({ filteredFeed, anomalies, searchQuery, setSearchQuery, activeDomain }) {
-  const panelTitle = activeDomain === "CYBER" ? "IN-MEMORY DATA LAKE" :
-                     activeDomain === "FINANCE" ? "GLOBAL MARKET SIGNALS" : 
-                     "GEOPOLITICAL INTELLIGENCE";
+export function DataLake({ filteredFeed, anomalies, searchQuery, setSearchQuery, activeDomain, onTrackIp }) {
+  const [trackingIp, setTrackingIp] = useState(null);
 
-  const totalPackets = useMemo(() => {
-    return 1420 + (filteredFeed.length * 68) % 3000;
-  }, [filteredFeed]);
+  const exportCsv = () => {
+    if(!filteredFeed.length) return;
+    const header = "Timestamp,Severity,Threat Type,Attacker IP,Explanation,Log Data\n";
+    const csv = filteredFeed.map(f => {
+      const ts = new Date(f.ts).toISOString();
+      return `${ts},${f.severity},"${f.threat_type || ''}","${f.attacker_ip || ''}","${f.explanation || ''}","${f.log.replace(/"/g, '""')}"`;
+    }).join("\n");
+    
+    const blob = new Blob([header + csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sentinel_export_${Date.now()}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleTrack = async (ip) => {
+    setTrackingIp(ip);
+    try {
+      const res = await fetch(`http://ip-api.com/json/${ip}`);
+      const data = await res.json();
+      if(onTrackIp && data.lat) {
+        onTrackIp(data);
+      } else {
+        alert(`Geolocation failed for IP: ${ip}`);
+      }
+    } catch { 
+      alert(`API Limit reached or network error for IP: ${ip}`);
+    }
+    setTrackingIp(null);
+  };
 
   return (
-    <div className="wm-panel-right">
-      <div className="glass-panel" style={{ padding: 24, display: "flex", flexDirection: "column", height: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
-          <div>
-            <div className="panel-label" style={{ marginBottom: 6 }}>{panelTitle}</div>
-            <div style={{ fontSize: 10, color: 'hsla(0, 0%, 100%, 0.3)', fontFamily: 'var(--mono-font)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Activity size={12} /> {totalPackets} PKTS/S REAL-TIME
-            </div>
-          </div>
-          <div className="badge-tag" style={{ border: '1px solid', padding: '4px 10px', fontSize: '9px', background: anomalies > 0 ? 'hsla(0, 100%, 50%, 0.1)' : 'hsla(162, 84%, 39%, 0.1)', borderColor: anomalies > 0 ? '#ef4444' : '#10b981', color: anomalies > 0 ? '#ef4444' : '#10b981' }}>
-            {anomalies} THREATS DETECTED
+    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '0' }}>
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+           <h3 style={{ margin: 0, color: 'var(--domain-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+             DATA LAKE
+             <span className="status-tag" style={{ background: 'var(--alert-red)' }}>{anomalies} FLAGS</span>
+           </h3>
+           <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#888' }}>Real-time {activeDomain} telemetry feed.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="btn-console" onClick={exportCsv} title="Download CSV Report">
+            <Download size={14} /> EXPORT
+          </button>
+          <div className="splunk-input-box" style={{ marginBottom: 0, width: '220px' }}>
+             <input type="text" placeholder="Search SPL..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ height: '36px' }} />
           </div>
         </div>
-
-        <div className="splunk-input-box">
-          <Search size={14} color="var(--domain-primary)" style={{ position: "absolute", top: 18, left: 14, opacity: 0.6 }} />
-          <input 
-            value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} 
-            placeholder="SPL > severity:critical | filter nodes" 
-            style={{ paddingLeft: 42, background: 'rgba(0,0,0,0.8)' }}
-          />
-        </div>
-
-        <div className="list-container">
-          {filteredFeed.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 80, opacity: 0.4, fontSize: 11, letterSpacing: "0.25em", fontFamily: "var(--mono-font)" }}>SYNCHRONIZING FEED...</div>
-          ) : (
-            filteredFeed.map(f => (
-              <div key={f.id} className="live-item" style={{ borderLeftColor: f.is_anomaly ? SEV_COLOR[f.severity] : 'var(--domain-primary)', background: f.is_anomaly ? 'hsla(0, 100%, 50%, 0.03)' : 'transparent' }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span className="ts" style={{ fontSize: 10, opacity: 0.4, fontFamily: 'var(--mono-font)' }}>{new Date(f.ts).toLocaleTimeString()}</span>
-                  <span className="type" style={{ fontSize: 10, fontWeight: 900, color: f.is_anomaly ? SEV_COLOR[f.severity] : 'var(--domain-primary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{f.category || f.threat_type}</span>
-                </div>
-                <div className="content" style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5, fontFamily: 'var(--heading-font)' }}>{f.log}</div>
+      </div>
+      
+      <div className="list-container" style={{ padding: '20px 24px' }}>
+        {filteredFeed.length === 0 ? (
+          <div style={{ textAlign: 'center', opacity: 0.5, marginTop: '40px' }}>No logs match current filter.</div>
+        ) : (
+          filteredFeed.map((item) => (
+            <div key={item.id} className="live-item" style={{ borderLeftColor: item.is_anomaly ? 'var(--alert-red)' : 'var(--domain-primary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <strong style={{ color: item.is_anomaly ? '#ef4444' : 'white', fontSize: '12px', letterSpacing: '0.05em' }}>
+                  {item.threat_type || 'TELEMETRY'}
+                </strong>
+                <span style={{ fontSize: '10px', color: '#666', fontFamily: 'var(--mono-font)' }}>
+                  {new Date(item.ts).toLocaleTimeString()}
+                </span>
               </div>
-            ))
-          )}
-        </div>
+              <div style={{ fontSize: '13px', lineHeight: '1.5', wordBreak: 'break-all', fontFamily: 'var(--mono-font)', opacity: 0.8 }}>
+                {item.log}
+              </div>
+              {item.is_anomaly && item.explanation && (
+                <div style={{ marginTop: '8px', padding: '10px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', fontSize: '12px', color: '#ef4444' }}>
+                  <strong>AI ANALYSIS:</strong> {item.explanation}
+                </div>
+              )}
+              {item.attacker_ip && (
+                <div style={{ marginTop: '10px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'var(--mono-font)', fontSize: '11px', color: 'var(--domain-primary)' }}>IP: {item.attacker_ip}</span>
+                  <button 
+                    onClick={() => handleTrack(item.attacker_ip)} 
+                    disabled={trackingIp === item.attacker_ip}
+                    style={{ background: 'transparent', border: '1px solid var(--domain-primary)', color: 'var(--domain-primary)', padding: '4px 8px', fontSize: '10px', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Crosshair size={10} /> {trackingIp === item.attacker_ip ? 'TRACING...' : 'REVERSE TRACK'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

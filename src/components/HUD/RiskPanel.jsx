@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { TrendingUp } from "lucide-react";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 
 export function RiskPanel({ isAlertActive, feed }) {

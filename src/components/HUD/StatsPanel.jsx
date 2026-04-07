@@ -1,6 +1,6 @@
 import React from "react";
 
-export function StatsPanel({ activeDomain, feed, signatures, simulationMode }) {
+export function StatsPanel({ activeDomain, signatures, simulationMode }) {
   return (
     <div className="wm-panel-bottom">
        <div className="stat-box">

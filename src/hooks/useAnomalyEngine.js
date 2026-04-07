@@ -5,7 +5,7 @@ export function useAnomalyEngine({ apiKey, selectedModel, simulationMode, signat
   const [feed, setFeed] = useState([]);
   const [arcs, setArcs] = useState([]);
   const [rings, setRings] = useState([]);
-  const [liveMode, setLiveMode] = useState(false);
+  const [liveMode, setLiveMode] = useState(true);
   const [liveSpeed, setLiveSpeed] = useState(4000);
 
   const buildSystemPrompt = useCallback(() => {
@@ -14,7 +14,7 @@ export function useAnomalyEngine({ apiKey, selectedModel, simulationMode, signat
 CONTEXT: Cybersecurity, Global Markets, and Geopolitical instability.
 TASK: Analyze the provided intel string and return a JSON result.
 SIGNATURES: ${active.map(s => s.category).join(", ")}
-RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": "critical/high/medium/low/normal", "explanation": "string", "iocs": [] }`;
+RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": "critical/high/medium/low/normal", "explanation": "string", "attacker_ip": "192.168.x.x string", "iocs": [] }`;
   }, [signatures, activeDomain]);
 
   const analyzeLog = useCallback(async (logText) => {
@@ -25,6 +25,7 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
         is_anomaly: isSus, 
         threat_type: isSus ? `${activeDomain} ALERT` : "NORMAL TRAFFIC", 
         severity: isSus ? "high" : "normal", 
+        attacker_ip: isSus ? `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}` : null,
         log: logText, ts: Date.now(), id: Date.now() + Math.random() 
       };
     }
@@ -83,6 +84,23 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
         setArcs(prev => [...prev, { startLat: originURL.lat, startLng: originURL.lng, endLat: targetURL.lat, endLng: targetURL.lng, color: SEV_COLOR[result.severity] }].slice(-25));
         if (result.severity === "critical") {
           setRings(prev => [...prev, { lat: targetURL.lat, lng: targetURL.lng, color: "#ef4444", maxR: 8 }].slice(-10));
+          
+          // Autonomous Audio Alert
+          try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+          } catch { /* Ignore AudioContext restrictions before user gesture */ }
         }
       }
     }, liveSpeed);

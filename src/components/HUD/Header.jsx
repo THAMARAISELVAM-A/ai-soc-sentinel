@@ -1,5 +1,6 @@
 import React from "react";
 import { Globe as GlobeIcon, ShieldAlert, Radio, TrendingUp, BookOpen, Settings } from "lucide-react";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 
 export function Header({ activeDomain, setActiveDomain, setShowOsintPanel, liveMode, toggleLive, setShowSettings }) {

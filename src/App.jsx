@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Target, Map, Crosshair } from "lucide-react";
-import { motion } from "framer-motion";
+
 import * as topojson from "topojson-client";
 
 import "./App.css";
@@ -11,9 +11,11 @@ import { useAnomalyEngine } from "./hooks/useAnomalyEngine.js";
 import { useL2Forecaster } from "./hooks/useL2Forecaster.js";
 import { GlobeLayer } from "./components/GlobeLayer.jsx";
 
+import { Sidebar } from "./components/Sidebar.jsx";
+import { TopBar } from "./components/TopBar.jsx";
+
 // ── NEW MODULAR COMPONENTS ──────────────────────────────────
 import { DataLake } from "./components/UIPanels/DataLake.jsx";
-import { Header } from "./components/HUD/Header.jsx";
 import { RiskPanel } from "./components/HUD/RiskPanel.jsx";
 import { PredictivePanel } from "./components/HUD/PredictivePanel.jsx";
 import { IntelligencePanel } from "./components/HUD/IntelligencePanel.jsx";
@@ -23,7 +25,7 @@ import { OSINTModal } from "./components/Modals/OSINTModal.jsx";
 
 export default function AnomalyDetector() {
   const [apiKey] = useState(() => localStorage.getItem("anthropic_api_key") || "");
-  const [showSettings, setShowSettings] = useState(false);
+
   const [dim, setDim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [signatures, setSignatures] = useState(DEFAULT_SIGNATURES);
   const [selectedModel] = useState("claude-3-5-sonnet-20241022");
@@ -42,7 +44,7 @@ export default function AnomalyDetector() {
   const [searchQuery, setSearchQuery] = useState(getUrlParam("spl", ""));
 
   // ── HOOKS: THE ENGINE ───────────────────────────────────────
-  const { feed, arcs, rings, liveMode, toggleLive, liveSpeed, setLiveSpeed } = useAnomalyEngine({ 
+  const { feed, arcs, rings, liveMode, liveSpeed, setLiveSpeed } = useAnomalyEngine({ 
     apiKey, selectedModel, simulationMode, signatures, activeDomain
   });
   
@@ -84,6 +86,9 @@ export default function AnomalyDetector() {
     return [...LAYERS_DB.ddos, ...LAYERS_DB.malware]; 
   }, [activeLayers, activeDomain]);
 
+  const [activePage, setActivePage] = useState('dash');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   // ── DYNAMIC THEMING ──────────────────────
   const isAlertActive = feed[0]?.is_anomaly && (feed[0]?.severity === "critical" || feed[0]?.severity === "high");
   const themeClass = `theme-${activeDomain.toLowerCase()}`;
@@ -99,62 +104,76 @@ export default function AnomalyDetector() {
   };
 
   return (
-    <div className={`wm-main-wrapper ${themeClass} ${isAlertActive ? 'alert-active' : ''}`}>
+    <div className={`wm-main-wrapper ${themeClass} ${isAlertActive ? 'alert-active' : ''}`} style={{ display: 'flex' }}>
       
-      <GlobeLayer 
-        dim={dim} countries={countries} arcs={arcs} rings={rings} 
-        mapPoints={mapPoints} liveMode={liveMode} globeRef={globeRef} 
-        activeDomain={activeDomain}
-      />
+      {/* Persist the globe behind everything */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, opacity: activePage === 'dash' ? 1 : 0.2, transition: 'opacity 0.6s', pointerEvents: activePage === 'dash' ? 'auto' : 'none' }}>
+         <GlobeLayer 
+           dim={dim} countries={countries} arcs={arcs} rings={rings} 
+           mapPoints={mapPoints} liveMode={liveMode} globeRef={globeRef} 
+           activeDomain={activeDomain}
+         />
+      </div>
 
-      <div className="wm-ui-layer">
+      <Sidebar activePage={activePage} setActivePage={setActivePage} isSidebarOpen={isSidebarOpen} />
+      
+      <div className={`main ${isSidebarOpen ? '' : 'expanded'}`} style={{ 
+        marginLeft: isSidebarOpen ? '240px' : '0', 
+        width: isSidebarOpen ? 'calc(100% - 240px)' : '100%', 
+        transition: 'all 0.3s ease', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto'
+      }}>
+        <TopBar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} activePage={activePage} activeDomain={activeDomain} setActiveDomain={setActiveDomain} />
         
-        <Header 
-          activeDomain={activeDomain} setActiveDomain={setActiveDomain} 
-          setShowOsintPanel={setShowOsintPanel} liveMode={liveMode} 
-          toggleLive={toggleLive} setShowSettings={setShowSettings} 
-        />
+        <div className="content" style={{ padding: '24px', flexGrow: 1 }}>
+          
+          {activePage === 'dash' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                 <StatsPanel activeDomain={activeDomain} feed={feed} signatures={signatures} simulationMode={simulationMode} />
+              </div>
+              <div className="map-controls glass-panel" style={{ width: 'fit-content', padding: '8px', zIndex: 20 }}>
+                 <button className="nav-icon-btn" onClick={() => globeRef.current?.pointOfView({ lat: 38, lng: 127, altitude: 1.5 }, 1500)} title="Focus: Asia"><Target size={18} /></button>
+                 <button className="nav-icon-btn" onClick={() => globeRef.current?.pointOfView({ lat: 48, lng: 31, altitude: 1.5 }, 1500)} title="Focus: Europe"><Map size={18} /></button>
+                 <button className="nav-icon-btn" onClick={() => globeRef.current?.pointOfView({ lat: 0, lng: 0, altitude: 2.5 }, 1000)} title="Reset Globe"><Crosshair size={18} /></button>
+              </div>
+            </div>
+          )}
 
-        <div className="wm-panel-left">
-           <RiskPanel isAlertActive={isAlertActive} feed={feed} />
-           {forecast ? <PredictivePanel forecast={forecast} /> : null}
-           <IntelligencePanel 
-             intelTab={intelTab} setIntelTab={setIntelTab} 
-             activeDomain={activeDomain} signatures={signatures} 
-           />
-        </div>
+          {activePage === 'l2' && forecast && (
+            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+               <PredictivePanel forecast={forecast} />
+            </div>
+          )}
 
-        <div className="wm-panel-right">
-          <DataLake 
-            filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} 
-            searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
-            activeDomain={activeDomain}
-          />
-        </div>
+          {activePage === 'data' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '24px', height: 'calc(100vh - 120px)' }}>
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <RiskPanel isAlertActive={isAlertActive} feed={feed} />
+                  <IntelligencePanel intelTab={intelTab} setIntelTab={setIntelTab} activeDomain={activeDomain} signatures={signatures} />
+               </div>
+               <DataLake filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeDomain={activeDomain} onTrackIp={(geoData) => {
+                 if(globeRef.current && geoData.lat) {
+                   globeRef.current.pointOfView({ lat: geoData.lat, lng: geoData.lon || geoData.lng, altitude: 0.8 }, 2000);
+                 }
+               }} />
+            </div>
+          )}
 
-        <StatsPanel 
-          activeDomain={activeDomain} feed={feed} 
-          signatures={signatures} simulationMode={simulationMode} 
-        />
+          {activePage === 'settings' && (
+            <SettingsOverlay showSettings={true} setShowSettings={() => {}} simulationMode={simulationMode} setSimulationMode={setSimulationMode} liveSpeed={liveSpeed} setLiveSpeed={setLiveSpeed} />
+          )}
 
-        <div className="map-controls">
-           <button className="map-btn" onClick={() => globeRef.current?.pointOfView({ lat: 38, lng: 127, altitude: 1.5 }, 1500)} title="Focus: Asia"><Target size={16} /></button>
-           <button className="map-btn" onClick={() => globeRef.current?.pointOfView({ lat: 48, lng: 31, altitude: 1.5 }, 1500)} title="Focus: Europe"><Map size={16} /></button>
-           <button className="map-btn" onClick={() => globeRef.current?.pointOfView({ lat: 0, lng: 0, altitude: 2.5 }, 1000)} title="Reset Globe"><Crosshair size={16} /></button>
+          {activePage === 'archives' && (
+             <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--domain-primary)' }}>
+                <h2>No Historical Archives Found</h2>
+                <p style={{ opacity: 0.6, marginTop: '10px' }}>Historical telemetry requires an attached external S3 bucket.</p>
+             </div>
+          )}
+          
         </div>
       </div>
 
-      <SettingsOverlay 
-        showSettings={showSettings} setShowSettings={setShowSettings} 
-        simulationMode={simulationMode} setSimulationMode={setSimulationMode} 
-        liveSpeed={liveSpeed} setLiveSpeed={setLiveSpeed} 
-      />
-
-      <OSINTModal 
-        showOsintPanel={showOsintPanel} setShowOsintPanel={setShowOsintPanel} 
-        osintText={osintText} setOsintText={setOsintText} 
-        processOsintIntelligence={processOsintIntelligence} isOsintParsing={isOsintParsing} 
-      />
+      <OSINTModal showOsintPanel={showOsintPanel || activePage === 'osint'} setShowOsintPanel={(val) => { setShowOsintPanel(val); if(!val && activePage === 'osint') setActivePage('dash'); }} osintText={osintText} setOsintText={setOsintText} processOsintIntelligence={processOsintIntelligence} isOsintParsing={isOsintParsing} />
     </div>
   );
 }

@@ -199,7 +199,22 @@ body {
 
 .wm-main-wrapper.alert-active { --soc-accent: #ef4444; --soc-accent-glow: hsla(0, 84%, 60%, 0.8); }
 
-@media (max-width: 1400px) {
-  .wm-ui-layer { grid-template-columns: 340px 1fr 400px; gap: 1rem; padding: 1rem; }
-  .wm-panel-bottom { gap: 2rem; justify-content: space-around; }
+/* ── SIDEBAR (Chesskidoo Layout Port) ────────────────────────── */
+.sidebar {
+  width: 240px; background: rgba(1, 2, 4, 0.95); border-right: 1px solid var(--glass-border);
+  display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100;
+  transition: transform 0.3s ease; backdrop-filter: blur(20px);
 }
+.sidebar.collapsed { transform: translateX(-100%); }
+
+.main {
+  margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh;
+  transition: margin-left 0.3s ease; width: calc(100% - 240px); z-index: 10; position: relative;
+}
+.main.expanded { margin-left: 0; width: 100%; }
+
+/* Custom Scrollbars */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--domain-glow); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--domain-highlight); }
