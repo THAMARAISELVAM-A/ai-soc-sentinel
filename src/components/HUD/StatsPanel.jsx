@@ -1,27 +1,47 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
 export function StatsPanel({ activeDomain, signatures, simulationMode }) {
+  const [liveSig, setLiveSig] = useState("SYNCING...");
+
+  useEffect(() => {
+    if (activeDomain === 'FINANCE') {
+      const fetchPrice = async () => {
+        try {
+          const res = await fetch('https://api.coindesk.com/v1/bpi/currentprice.json');
+          const data = await res.json();
+          setLiveSig(`BTC: $${Math.floor(data.bpi.USD.rate_float).toLocaleString()}`);
+        } catch {
+          setLiveSig("OFFLINE");
+        }
+      };
+      fetchPrice();
+      const interval = setInterval(fetchPrice, 30000); // 30s refresh
+      return () => clearInterval(interval);
+    } else {
+      // For Cyber/GeoInt, simulated signal based on current domain stressors
+      setLiveSig(activeDomain === 'CYBER' ? "SIG: 104.2 Tbps" : "GEO: 0.94 STAB");
+    }
+  }, [activeDomain]);
+
   return (
-    <div className="wm-panel-bottom">
+    <div className="wm-panel-bottom" style={{ gap: '4rem' }}>
        <div className="stat-box">
           <span>OPERATIONAL MODE</span>
-          <strong>{simulationMode ? 'SIMULATED' : 'LIVE TRANSMISSION'}</strong>
+          <strong style={{ color: simulationMode ? '#94a3b8' : '#10b981' }}>
+            {simulationMode ? 'SIMULATION' : 'LIVE UPLINK'}
+          </strong>
        </div>
        <div className="stat-box">
-          <span>ACTIVE DOMAIN</span>
-          <strong style={{ color: 'var(--domain-primary)' }}>{activeDomain}</strong>
+          <span>{activeDomain} SIGNAL</span>
+          <strong style={{ color: 'var(--domain-primary)' }}>{liveSig}</strong>
        </div>
        <div className="stat-box">
-          <span>THREAT SIGNATURES</span>
+          <span>ACTIVE SIGNATURES</span>
           <strong>{signatures.filter(s => s.active).length}</strong>
        </div>
        <div className="stat-box">
-          <span>TELEMETRY FPS</span>
-          <strong>60.4</strong>
-       </div>
-       <div className="stat-box">
           <span>SIGNAL LATENCY</span>
-          <strong>12ms</strong>
+          <strong style={{ opacity: 0.8 }}>{simulationMode ? '0ms' : '12ms'}</strong>
        </div>
        <div className="stat-box">
           <span>SYSTEM HEALTH</span>

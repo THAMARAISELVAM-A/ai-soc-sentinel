@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { NORMAL_LOGS, ATTACK_LOGS, MOCK_COORD, LAYERS_DB, SEV_COLOR } from "../constants/threatData";
 
 export function useAnomalyEngine({ apiKey, selectedModel, simulationMode, signatures, activeDomain }) {
@@ -7,6 +7,28 @@ export function useAnomalyEngine({ apiKey, selectedModel, simulationMode, signat
   const [rings, setRings] = useState([]);
   const [liveMode, setLiveMode] = useState(true);
   const [liveSpeed, setLiveSpeed] = useState(4000);
+  const contextKeywords = useRef([]);
+
+  // Fetch real-world context once to "infuse" the autonomous engine
+  useEffect(() => {
+    const fetchContext = async () => {
+      try {
+        const rssUrl = activeDomain === 'FINANCE' ? "https://finance.yahoo.com/news/rssindex" : "https://feeds.bbci.co.uk/news/world/rss.xml";
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
+        const data = await res.json();
+        if (data.status === 'ok') {
+          // Extract 2-3 word slugs from titles to use as "live indicators"
+          contextKeywords.current = data.items.map(item => {
+            const words = item.title.split(' ').slice(0, 3).join('-').toUpperCase();
+            return words.replace(/[^A-Z-]/g, '');
+          }).filter(w => w.length > 5);
+        }
+      } catch (e) {
+        console.warn("Autonomous Context Sync Failed", e);
+      }
+    };
+    fetchContext();
+  }, [activeDomain]);
 
   const buildSystemPrompt = useCallback(() => {
     const active = signatures.filter(s => s.active);
@@ -20,13 +42,14 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
   const analyzeLog = useCallback(async (logText) => {
     if (simulationMode || !apiKey) {
       await new Promise(r => setTimeout(r, 400));
-      const isSus = /union|failed|curl|instability|crash|strike|military/i.test(logText);
+      const isSus = /union|failed|curl|instability|crash|strike|military|breach|exploit|infiltrate/i.test(logText);
       return { 
         is_anomaly: isSus, 
         threat_type: isSus ? `${activeDomain} ALERT` : "NORMAL TRAFFIC", 
-        severity: isSus ? "high" : "normal", 
+        severity: isSus ? (Math.random() > 0.7 ? "critical" : "high") : "normal", 
         attacker_ip: isSus ? `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}` : null,
-        log: logText, ts: Date.now(), id: Date.now() + Math.random() 
+        log: logText, ts: Date.now(), id: Date.now() + Math.random(),
+        explanation: isSus ? "Heuristic match for suspicious patterns in telemetry stream." : null
       };
     }
     // ── LIVE ANTHROPIC AI ENGINE ────────────────────────────
@@ -71,10 +94,17 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
 
     const interval = setInterval(async () => {
       let logs = (activeDomain === "CYBER") ? [...NORMAL_LOGS, ...ATTACK_LOGS] :
-                 (activeDomain === "FINANCE") ? ["STOCK CRASH: $AAPL -12%", "NASDAQ VOLATILITY RISING", "DEBT LIMIT BREACHED", "MARKET STABLE"] :
-                 ["MILITARY MOVEMENT: DNIEPER RIVER", "AIRSPACE CLOSURE: MEA", "STABILITY SCORE: KOREA DECREASE", "ROUTINE PATROL"];
+                 (activeDomain === "FINANCE") ? ["STOCK VOLATILITY RISING", "DEBT LIMIT BREACHED", "MARKET STABLE", "LIQUIDITY ALERT"] :
+                 ["ROUTINE PATROL", "STABILITY SCORE NOMINAL", "AIRSPACE MONITORING", "BORDER TELEMETRY"];
 
-      const log = logs[Math.floor(Math.random() * logs.length)];
+      let log = logs[Math.floor(Math.random() * logs.length)];
+      
+      // Infuse log with live context if available
+      if (contextKeywords.current.length > 0 && Math.random() > 0.5) {
+        const keyword = contextKeywords.current[Math.floor(Math.random() * contextKeywords.current.length)];
+        log = `${log} [REF: ${keyword}]`;
+      }
+
       const result = await analyzeLog(log);
       setFeed(prev => [result, ...prev].slice(0, 150));
 
@@ -82,10 +112,10 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
         const originURL = MOCK_COORD[Math.floor(Math.random() * MOCK_COORD.length)];
         const targetURL = LAYERS_DB.centers[Math.floor(Math.random() * LAYERS_DB.centers.length)] || MOCK_COORD[0];
         setArcs(prev => [...prev, { startLat: originURL.lat, startLng: originURL.lng, endLat: targetURL.lat, endLng: targetURL.lng, color: SEV_COLOR[result.severity] }].slice(-25));
+        
         if (result.severity === "critical") {
           setRings(prev => [...prev, { lat: targetURL.lat, lng: targetURL.lng, color: "#ef4444", maxR: 8 }].slice(-10));
           
-          // Autonomous Audio Alert
           try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             const ctx = new AudioContext();
@@ -96,11 +126,11 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
             osc.type = 'sine';
             osc.frequency.setValueAtTime(800, ctx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
             osc.start();
             osc.stop(ctx.currentTime + 0.3);
-          } catch { /* Ignore AudioContext restrictions before user gesture */ }
+          } catch { } 
         }
       }
     }, liveSpeed);

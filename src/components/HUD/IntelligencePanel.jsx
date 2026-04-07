@@ -1,70 +1,97 @@
-import React from "react";
-// eslint-disable-next-line no-unused-vars
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { Newspaper, ShieldAlert, TrendingUp, Globe, ExternalLink, Loader2 } from "lucide-react";
 
-export function IntelligencePanel({ intelTab, setIntelTab, activeDomain, signatures }) {
+const RSS_FEEDS = {
+  CYBER: "https://feeds.feedburner.com/TheHackersNews",
+  FINANCE: "https://finance.yahoo.com/news/rssindex",
+  GEOINT: "https://feeds.bbci.co.uk/news/world/rss.xml"
+};
+
+export function IntelligencePanel({ activeDomain }) {
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      setLoading(true);
+      setError(false);
+      try {
+        const rssUrl = RSS_FEEDS[activeDomain] || RSS_FEEDS.CYBER;
+        const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
+        const data = await response.json();
+        if (data.status === 'ok') {
+          setNews(data.items.slice(0, 8)); // Top 8 news
+        } else {
+          setError(true);
+        }
+      } catch (e) {
+        console.error("News Fetch Failed", e);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNews();
+    const interval = setInterval(fetchNews, 600000); // 10 min refresh
+    return () => clearInterval(interval);
+  }, [activeDomain]);
+
   return (
     <div className="glass-panel" style={{ padding: 24, flex: 1, display: "flex", flexDirection: "column", minHeight: 400 }}>
-      <div className="tab-bar">
-         <button onClick={()=>setIntelTab("THREATS")} className={`tab-btn ${intelTab==='THREATS'?'active':''}`}>LIVE INTELLIGENCE</button>
-         <button onClick={()=>setIntelTab("POSTURE")} className={`tab-btn ${intelTab==='POSTURE'?'active':''}`}>POSTURE</button>
+      {/* Title Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--domain-primary)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Newspaper size={16} /> LIVE INTELLIGENCE
+        </h4>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+           <div className={`status-dot ${loading ? 'scanning' : ''}`} style={{ width: 6, height: 6, borderRadius: '50%', background: error ? '#ef4444' : '#10b981' }} />
+           <span style={{ fontSize: 9, color: '#666', fontWeight: 900 }}>{loading ? 'SYNCING...' : 'REAL-TIME'}</span>
+        </div>
       </div>
 
-      <div className="list-container">
-        {intelTab === "THREATS" ? (
-           <div style={{ display: "flex", flexDirection: "column" }}>
-              {activeDomain === "CYBER" && signatures.slice(0, 3).map((s, idx) => (
-                 <motion.div 
-                   key={idx} className="intel-card" 
-                   initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.1 }}
-                   style={{ borderLeft: `3px solid var(--domain-primary)` }}
-                 >
-                    <div className="intel-source">THREAT-REGISTRY {s.mitre}</div>
-                    <div className="intel-title">{s.category} active in global cluster.</div>
-                 </motion.div>
-              ))}
-              {activeDomain === "GEOINT" && (
-                  <>
-                    <motion.div className="intel-card" style={{ borderLeft: "4px solid #10b981" }} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-                       <div className="intel-source" style={{ color: "#10b981" }}>KOREAHERALD.COM <span className="status-tag" style={{ background: "#10b981" }}>MONITORING</span></div>
-                       <div className="intel-title">Regional strategic flexibility at risk in North Theater.</div>
-                    </motion.div>
-                    <motion.div className="intel-card" style={{ borderLeft: "1px solid hsla(162, 84%, 39%, 0.3)" }} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-                       <div className="intel-source">GEO-INTEL_OPS</div>
-                       <div className="intel-title">Military hardware migration detected in Eastern Europe.</div>
-                    </motion.div>
-                  </>
-              )}
-              {activeDomain === "FINANCE" && (
-                  <>
-                    <motion.div className="intel-card" style={{ borderLeft: "4px solid #f59e0b" }} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-                       <div className="intel-source" style={{ color: "#f59e0b" }}>BLOOMBERG.INT</div>
-                       <div className="intel-title">Supply chain volatility index rising across Asian tech nodes.</div>
-                    </motion.div>
-                    <motion.div className="intel-card" style={{ borderLeft: "1px solid hsla(38, 92%, 50%, 0.3)" }} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-                       <div className="intel-source" style={{ color: "#f59e0b" }}>MARKET-ALERT <span className="status-tag" style={{ background: "#f59e0b" }}>ELEVATED</span></div>
-                       <div className="intel-title">National Debt Clock: Global surplus trajectory failing.</div>
-                    </motion.div>
-                  </>
-              )}
-           </div>
-        ) : (
-           <div className="meter-list" style={{ display: "flex", flexDirection: "column", gap: 24, marginTop: 10 }}>
-              <div className="meter-row">
-                 <div className="meter-label"><span>UKRAINE RECOVERY</span> <strong style={{ color: "white" }}>72%</strong></div>
-                 <div className="meter-bar-bg"><div className="meter-bar-fill" style={{ width: "72%", background: "var(--domain-primary)", boxShadow: `0 0 15px var(--domain-glow)` }} /></div>
+      {loading && !news.length ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+           <Loader2 className="scanning" size={24} color="var(--domain-primary)" />
+           <span style={{ fontSize: 11, letterSpacing: '0.15em', opacity: 0.4 }}>SCANNING GLOBAL CHANNELS...</span>
+        </div>
+      ) : error ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' }}>
+           <ShieldAlert size={28} color="#ef4444" style={{ marginBottom: 10 }} />
+           <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>FEED OFFLINE</span>
+           <span style={{ fontSize: 10, opacity: 0.6 }}>Connection interrupted. Retrying in background.</span>
+        </div>
+      ) : (
+        <div className="list-container" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {news.map((item, idx) => (
+            <motion.div 
+              key={idx} 
+              className="intel-card" 
+              initial={{ opacity: 0, x: -10 }} 
+              animate={{ opacity: 1, x: 0 }} 
+              transition={{ delay: idx * 0.05 }}
+              style={{ borderLeft: `3px solid var(--domain-primary)`, padding: '16px', cursor: 'pointer' }}
+              onClick={() => window.open(item.link, '_blank')}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                 <div className="intel-source" style={{ margin: 0 }}>
+                    {activeDomain === 'CYBER' ? <ShieldAlert size={10} /> : activeDomain === 'FINANCE' ? <TrendingUp size={10} /> : <Globe size={10} />}
+                    {item.author || (activeDomain === 'CYBER' ? 'HACKER NEWS' : activeDomain === 'FINANCE' ? 'YAHOO FINANCE' : 'BBC WORLD')}
+                 </div>
+                 <ExternalLink size={10} style={{ opacity: 0.4 }} />
               </div>
-              <div className="meter-row">
-                 <div className="meter-label"><span>CHINA STABILITY</span> <strong style={{ color: "white" }}>91%</strong></div>
-                 <div className="meter-bar-bg"><div className="meter-bar-fill" style={{ width: "91%", background: "var(--domain-primary)", boxShadow: `0 0 15px var(--domain-glow)` }} /></div>
+              <div className="intel-title" style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.4, color: '#f8fafc' }}>
+                {item.title}
               </div>
-              <div className="meter-row">
-                 <div className="meter-label"><span>MARKET LIQUIDITY</span> <strong style={{ color: "#ef4444" }}>45%</strong></div>
-                 <div className="meter-bar-bg"><div className="meter-bar-fill" style={{ width: "45%", background: "#ef4444", boxShadow: `0 0 15px hsla(0, 100%, 50%, 0.2)` }} /></div>
+              <div style={{ marginTop: 8, fontSize: 9, color: '#64748b', fontStyle: 'italic' }}>
+                {new Date(item.pubDate).toLocaleString()}
               </div>
-           </div>
-        )}
-      </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
