@@ -1,10 +1,11 @@
 import React from 'react';
-import { Target, ShieldAlert, Cpu, Activity, Database, Settings } from 'lucide-react';
+import { Target, ShieldAlert, Cpu, Activity, Database, Settings, Terminal } from 'lucide-react';
 
 export function Sidebar({ activePage, setActivePage, isSidebarOpen }) {
   const navItems = [
     { id: 'dash', label: 'Command Center', icon: <Target size={18} /> },
     { id: 'data', label: 'Live Data Lake', icon: <Database size={18} /> },
+    { id: 'ingest', label: 'Telemetry Ingest', icon: <Terminal size={18} /> },
     { id: 'l2', label: 'L2 Forecaster', icon: <Cpu size={18} /> },
     { id: 'archives', label: 'Threat Archives', icon: <ShieldAlert size={18} /> },
     { id: 'osint', label: 'OSINT Parsing', icon: <Database size={18} /> },

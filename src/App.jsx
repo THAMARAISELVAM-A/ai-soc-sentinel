@@ -22,9 +22,12 @@ import { IntelligencePanel } from "./components/HUD/IntelligencePanel.jsx";
 import { StatsPanel } from "./components/HUD/StatsPanel.jsx";
 import { SettingsOverlay } from "./components/Modals/SettingsOverlay.jsx";
 import { OSINTModal } from "./components/Modals/OSINTModal.jsx";
+import { LogIngestor } from "./components/UIPanels/LogIngestor.jsx";
 
 export default function AnomalyDetector() {
-  const [apiKey] = useState(() => localStorage.getItem("anthropic_api_key") || "");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("anthropic_api_key") || "");
+  const [threatFoxKey, setThreatFoxKey] = useState(() => localStorage.getItem("threatfox_api_key") || "");
+  const [otxKey, setOtxKey] = useState(() => localStorage.getItem("otx_api_key") || "");
 
   const [dim, setDim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [signatures, setSignatures] = useState(DEFAULT_SIGNATURES);
@@ -44,8 +47,8 @@ export default function AnomalyDetector() {
   const [searchQuery, setSearchQuery] = useState(getUrlParam("spl", ""));
 
   // ── HOOKS: THE ENGINE ───────────────────────────────────────
-  const { feed, arcs, rings, liveMode, liveSpeed, setLiveSpeed } = useAnomalyEngine({ 
-    apiKey, selectedModel, simulationMode, signatures, activeDomain
+  const { feed, arcs, rings, liveMode, liveSpeed, setLiveSpeed, ingestManualLog, proxyStatus } = useAnomalyEngine({ 
+    apiKey, selectedModel, simulationMode, signatures, activeDomain, threatFoxKey, otxKey
   });
   
   const { forecast } = useL2Forecaster({ 
@@ -71,6 +74,8 @@ export default function AnomalyDetector() {
   }, []);
 
   useEffect(() => { localStorage.setItem("anthropic_api_key", apiKey); }, [apiKey]);
+  useEffect(() => { localStorage.setItem("threatfox_api_key", threatFoxKey); }, [threatFoxKey]);
+  useEffect(() => { localStorage.setItem("otx_api_key", otxKey); }, [otxKey]);
 
   const filteredFeed = useMemo(() => feed.filter(f => {
     if (!searchQuery.trim()) return true;
@@ -129,7 +134,7 @@ export default function AnomalyDetector() {
           {activePage === 'dash' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
-                 <StatsPanel activeDomain={activeDomain} feed={feed} signatures={signatures} simulationMode={simulationMode} />
+                 <StatsPanel activeDomain={activeDomain} signatures={signatures} simulationMode={simulationMode} proxyStatus={proxyStatus} />
               </div>
               <div className="map-controls glass-panel" style={{ width: 'fit-content', padding: '8px', zIndex: 20 }}>
                  <button className="nav-icon-btn" onClick={() => globeRef.current?.pointOfView({ lat: 38, lng: 127, altitude: 1.5 }, 1500)} title="Focus: Asia"><Target size={18} /></button>
@@ -149,7 +154,7 @@ export default function AnomalyDetector() {
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '24px', height: 'calc(100vh - 120px)' }}>
                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <RiskPanel isAlertActive={isAlertActive} feed={feed} />
-                  <IntelligencePanel intelTab={intelTab} setIntelTab={setIntelTab} activeDomain={activeDomain} signatures={signatures} />
+                  <IntelligencePanel activeDomain={activeDomain} />
                </div>
                <DataLake filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeDomain={activeDomain} onTrackIp={(geoData) => {
                  if(globeRef.current && geoData.lat) {
@@ -160,7 +165,22 @@ export default function AnomalyDetector() {
           )}
 
           {activePage === 'settings' && (
-            <SettingsOverlay showSettings={true} setShowSettings={() => {}} simulationMode={simulationMode} setSimulationMode={setSimulationMode} liveSpeed={liveSpeed} setLiveSpeed={setLiveSpeed} />
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '40px' }}>
+              <SettingsOverlay 
+                showSettings={true} 
+                setShowSettings={() => {}} 
+                simulationMode={simulationMode} 
+                setSimulationMode={setSimulationMode} 
+                liveSpeed={liveSpeed} 
+                setLiveSpeed={setLiveSpeed} 
+                apiKey={apiKey} 
+                setApiKey={setApiKey} 
+                threatFoxKey={threatFoxKey} 
+                setThreatFoxKey={setThreatFoxKey} 
+                otxKey={otxKey} 
+                setOtxKey={setOtxKey}
+              />
+            </div>
           )}
 
           {activePage === 'archives' && (
@@ -168,6 +188,12 @@ export default function AnomalyDetector() {
                 <h2>No Historical Archives Found</h2>
                 <p style={{ opacity: 0.6, marginTop: '10px' }}>Historical telemetry requires an attached external S3 bucket.</p>
              </div>
+          )}
+
+          {activePage === 'ingest' && (
+            <div style={{ marginTop: '20px' }}>
+              <LogIngestor onIngest={ingestManualLog} activeDomain={activeDomain} />
+            </div>
           )}
           
         </div>

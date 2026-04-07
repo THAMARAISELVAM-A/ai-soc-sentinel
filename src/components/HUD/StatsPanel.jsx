@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-export function StatsPanel({ activeDomain, signatures, simulationMode }) {
+export function StatsPanel({ activeDomain, signatures, simulationMode, proxyStatus }) {
   const [liveSig, setLiveSig] = useState("SYNCING...");
 
   useEffect(() => {
@@ -18,7 +18,6 @@ export function StatsPanel({ activeDomain, signatures, simulationMode }) {
       const interval = setInterval(fetchPrice, 30000); // 30s refresh
       return () => clearInterval(interval);
     } else {
-      // For Cyber/GeoInt, simulated signal based on current domain stressors
       setLiveSig(activeDomain === 'CYBER' ? "SIG: 104.2 Tbps" : "GEO: 0.94 STAB");
     }
   }, [activeDomain]);
@@ -32,21 +31,20 @@ export function StatsPanel({ activeDomain, signatures, simulationMode }) {
           </strong>
        </div>
        <div className="stat-box">
+          <span>LOCAL PROXY</span>
+          <strong style={{ color: proxyStatus === 'CONNECTED' ? '#10b981' : '#ef4444', textShadow: proxyStatus === 'CONNECTED' ? '0 0 10px #10b98155' : 'none' }}>
+            {proxyStatus === 'CONNECTED' ? 'UPLINK ACTIVE' : 'DISCONNECTED'}
+          </strong>
+       </div>
+       <div className="stat-box">
           <span>{activeDomain} SIGNAL</span>
           <strong style={{ color: 'var(--domain-primary)' }}>{liveSig}</strong>
        </div>
        <div className="stat-box">
-          <span>ACTIVE SIGNATURES</span>
-          <strong>{signatures.filter(s => s.active).length}</strong>
-       </div>
-       <div className="stat-box">
           <span>SIGNAL LATENCY</span>
-          <strong style={{ opacity: 0.8 }}>{simulationMode ? '0ms' : '12ms'}</strong>
-       </div>
-       <div className="stat-box">
-          <span>SYSTEM HEALTH</span>
-          <strong style={{ color: '#10b981' }}>NOMINAL</strong>
+          <strong style={{ opacity: 0.8 }}>{simulationMode && proxyStatus !== 'CONNECTED' ? '0ms' : '12ms'}</strong>
        </div>
     </div>
   );
 }
+
