@@ -1,6 +1,24 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { NORMAL_LOGS, ATTACK_LOGS, MOCK_COORD, LAYERS_DB, SEV_COLOR } from "../constants/threatData";
 
+/**
+ * useAnomalyEngine - The central orchestration hook for the AI SOC Sentinel.
+ * 
+ * This hook manages the autonomous telemetry stream, AI-driven analysis, 
+ * real-time threat intelligence ingestion (ThreatFox), and local 
+ * sentinel proxy connectivity via WebSockets.
+ * 
+ * @param {Object} props - Hook properties.
+ * @param {string} props.apiKey - Anthropic API key for live AI analysis.
+ * @param {string} props.selectedModel - The Claude model to use for analysis.
+ * @param {boolean} props.simulationMode - If true, uses heuristic mock data instead of real APIs.
+ * @param {Array} props.signatures - List of active security signatures for the AI to monitor.
+ * @param {string} props.activeDomain - Current operational domain (CYBER | FINANCE | GEOINT).
+ * @param {string} props.threatFoxKey - API key for Abuse.ch ThreatFox integration.
+ * @param {string} props.otxKey - API key for AlienVault OTX (placeholder).
+ * 
+ * @returns {Object} { feed, arcs, rings, liveMode, toggleLive, liveSpeed, setLiveSpeed, analyzeLog, ingestManualLog, proxyStatus }
+ */
 export function useAnomalyEngine({ 
   apiKey, selectedModel, simulationMode, signatures, activeDomain, 
   threatFoxKey, otxKey 

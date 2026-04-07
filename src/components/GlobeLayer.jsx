@@ -18,6 +18,26 @@ const SAT_INITIAL = Array.from({ length: 28 }, (_, i) => ({
   type: i < 10 ? 'ISS/LEO' : i < 20 ? 'Starlink' : 'Recon',
 }));
 
+/**
+ * GlobeLayer - High-Fidelity 3D Visualization for AI SOC Sentinel.
+ * 
+ * This component renders a photorealistic 3D Earth with high-resolution textures, 
+ * topology bump-mapping, and interactive layers including:
+ * - Real-time Threat Arcs (Attack vectors)
+ * - Impact Rings (Anomaly locations)
+ * - Strategic Infrastructure (Data centers, nodes)
+ * - High-Altitude Satellite Constellation (LEO, Starlink, Recon)
+ * 
+ * @param {Object} props - Component properties.
+ * @param {Object} props.dim - Dimension object with { w, h }.
+ * @param {Object} props.countries - GeoJSON data for country borders.
+ * @param {Array} props.arcs - Live attack arcs with start/end coordinates.
+ * @param {Array} props.rings - Impact ring animations.
+ * @param {Array} props.mapPoints - Strategic node points.
+ * @param {boolean} props.liveMode - If true, enables orbital physics animations.
+ * @param {React.MutableRefObject} props.globeRef - Ref for programmatic camera control.
+ * @param {string} props.activeDomain - Current operational domain theme.
+ */
 export function GlobeLayer({ dim, countries, arcs, rings, mapPoints, liveMode, globeRef, activeDomain }) {
   const domainColor = DOMAIN_COLORS[activeDomain] || "#3b82f6";
   const [satellites, setSatellites] = useState(SAT_INITIAL);

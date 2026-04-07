@@ -1,5 +1,0 @@
-websockets
-asyncio
-scapy
-json
-requests
