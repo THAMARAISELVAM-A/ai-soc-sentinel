@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { Target, Map, Crosshair } from "lucide-react";
+import { useState, useEffect, useRef, useMemo, lazy, Suspense, Component } from "react";
+import { Target, Map, Crosshair, Shield, Activity, AlertTriangle } from "lucide-react";
 import * as topojson from "topojson-client";
+import { motion, AnimatePresence } from "framer-motion";
 
 import "./App.css";
 
@@ -8,26 +9,112 @@ import "./App.css";
 import { DEFAULT_SIGNATURES, LAYERS_DB } from "./constants/threatData.js";
 import { useAnomalyEngine } from "./hooks/useAnomalyEngine.js";
 import { useL2Forecaster } from "./hooks/useL2Forecaster.js";
-import { GlobeLayer } from "./components/GlobeLayer.jsx";
+import { GlobeLayer } from "./components/Core/GlobeLayer.jsx";
 
-import { Sidebar } from "./components/Sidebar.jsx";
-import { TopBar } from "./components/TopBar.jsx";
+import { Sidebar } from "./components/Navigation/Sidebar.jsx";
+import { TopBar } from "./components/Navigation/TopBar.jsx";
 
-// ── NEW MODULAR COMPONENTS ──────────────────────────────────
-import { DataLake } from "./components/UIPanels/DataLake.jsx";
-import { RiskPanel } from "./components/HUD/RiskPanel.jsx";
-import { PredictivePanel } from "./components/HUD/PredictivePanel.jsx";
-import { IntelligencePanel } from "./components/HUD/IntelligencePanel.jsx";
-import { StatsPanel } from "./components/HUD/StatsPanel.jsx";
-import { SettingsOverlay } from "./components/Modals/SettingsOverlay.jsx";
-import { OSINTModal } from "./components/Modals/OSINTModal.jsx";
-import { LogIngestor } from "./components/UIPanels/LogIngestor.jsx";
-import { ThreatHeatmap } from "./components/HUD/ThreatHeatmap.jsx";
+// ── LAZY LOADED COMPONENTS ─────────────────────────────────
+const DataLake = lazy(() => import("./components/UIPanels/DataLake.jsx"));
+const RiskPanel = lazy(() => import("./components/HUD/RiskPanel.jsx"));
+const PredictivePanel = lazy(() => import("./components/HUD/PredictivePanel.jsx"));
+const IntelligencePanel = lazy(() => import("./components/HUD/IntelligencePanel.jsx"));
+const StatsPanel = lazy(() => import("./components/HUD/StatsPanel.jsx"));
+const SettingsOverlay = lazy(() => import("./components/Modals/SettingsOverlay.jsx"));
+const OSINTModal = lazy(() => import("./components/Modals/OSINTModal.jsx"));
+const LogIngestor = lazy(() => import("./components/UIPanels/LogIngestor.jsx"));
+const LayerLegend = lazy(() => import("./components/HUD/LayerLegend.jsx"));
+const MobileNav = lazy(() => import("./components/Navigation/MobileNav.jsx"));
+const SplashGate = lazy(() => import("./components/Core/SplashGate.jsx"));
+const OSINTPanel = lazy(() => import("./components/UIPanels/OSINTPanel.jsx"));
 
-export default function AnomalyDetector() {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("anthropic_api_key") || "");
-  const [threatFoxKey, setThreatFoxKey] = useState(() => localStorage.getItem("threatfox_api_key") || "");
-  const [otxKey, setOtxKey] = useState(() => localStorage.getItem("otx_api_key") || "");
+import { useSentinelStore } from "./store/sentinelStore.js";
+
+// ── ERROR BOUNDARY ──────────────────────────────────────────
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error, errorInfo) {
+    console.error("🔴 Sentinel Error:", error, errorInfo);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ 
+          display: 'flex', flexDirection: 'column', alignItems: 'center', 
+          justifyContent: 'center', height: '100vh', background: '#0a0a0f', 
+          color: '#ef4444', fontFamily: 'monospace', padding: '20px' 
+        }}>
+          <AlertTriangle size={48} />
+          <h2 style={{ marginTop: '16px' }}>SYSTEM FAILURE</h2>
+          <p style={{ opacity: 0.7, maxWidth: '400px', textAlign: 'center' }}>
+            {this.state.error?.message || "Critical failure in Sentinel-ARM core"}
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            style={{ 
+              marginTop: '20px', padding: '12px 24px', 
+              background: '#dc2626', color: 'white', border: 'none', 
+              cursor: 'pointer', fontFamily: 'monospace' 
+            }}
+          >
+            REBOOT_SYSTEM
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ── LOADING FALLBACK ─────────────────────────────────────────
+function LoadingFallback({ area }) {
+  return (
+    <div className="glass-panel" style={{ 
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '200px', opacity: 0.6 
+    }}>
+      <div style={{ 
+        display: 'flex', alignItems: 'center', gap: '12px',
+        color: 'var(--domain-primary)', fontFamily: 'var(--mono-font)',
+        fontSize: '12px', letterSpacing: '2px'
+      }}>
+        <div className="spinner" style={{ 
+          width: '16px', height: '16px', border: '2px solid var(--domain-primary)',
+          borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite'
+        }} />
+        <span>LOADING_{area}...</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SentinelArm - Military-Grade Global Intelligence Platform.
+ * Orchestrates real-time threat detection and situational awareness.
+ */
+export default function SentinelArm() {
+  const { 
+    apiKey,
+    activeDomain, 
+    activeLayers, toggleLayer, 
+    simulationMode,
+    feed, arcs, rings, liveMode, liveSpeed,
+    panels
+  } = useSentinelStore();
+
+  const [booting, setBooting] = useState(true);
+  const [missionEngaged, setMissionEngaged] = useState(false);
+  const [bootStatus, setBootStatus] = useState("INITIALIZING_CORE");
+  const [bootProgress, setBootProgress] = useState(0);
 
   const [dim, setDim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [signatures, setSignatures] = useState(() => {
@@ -38,25 +125,51 @@ export default function AnomalyDetector() {
   const [showOsintPanel, setShowOsintPanel] = useState(false);
   const [osintText, setOsintText] = useState("");
   const [isOsintParsing, setIsOsintParsing] = useState(false);
+  const [showBriefing, setShowBriefing] = useState(() => !localStorage.getItem("soc_briefing_seen"));
 
-  // ── PHASE 2 DOMAIN STATE ──
-  const [activeDomain, setActiveDomain] = useState("CYBER"); // CYBER | FINANCE | GEOINT
-  const [intelTab, setIntelTab] = useState("THREATS");
+  const { syncCloud } = useSentinelStore();
 
-  // URL PARAMETER HYDRATION
-  const getUrlParam = (key, defaultVal) => new URLSearchParams(window.location.search).get(key) || defaultVal;
-  const [simulationMode, setSimulationMode] = useState(getUrlParam("sim", "true") === "true");
-  const [activeLayers] = useState(getUrlParam("layers", "centers,ddos").split(",").filter(Boolean));
-  const [searchQuery, setSearchQuery] = useState(getUrlParam("spl", ""));
+  // ── MISSION ORCHESTRATION ──
+  const handleEngage = () => {
+    setMissionEngaged(true);
+    // Professional Military Boot Sequence
+    const statusMsgs = [
+      { p: 10, m: "MOUNTING_TACTICAL_DOMAINS" },
+      { p: 35, m: "CALIBRATING_NEURAL_VECTORS" },
+      { p: 65, m: "SYNCING_THREAT_SIGNATURES" },
+      { p: 90, m: "HARDENING_OSINT_GATEWAY" },
+      { p: 100, m: "SENTINEL-ARM_ACTIVE" }
+    ];
 
-  // ── HOOKS: THE ENGINE ───────────────────────────────────────
-  const { feed, arcs, rings, liveMode, liveSpeed, setLiveSpeed, ingestManualLog, proxyStatus } = useAnomalyEngine({ 
-    apiKey, selectedModel, simulationMode, signatures, activeDomain, threatFoxKey, otxKey
-  });
-  
-  const { forecast } = useL2Forecaster({ 
-    feed, simulationMode, apiKey, selectedModel, liveMode, liveSpeed 
-  });
+    let current = 0;
+    const interval = setInterval(() => {
+      current += 2;
+      setBootProgress(current);
+      const msg = statusMsgs.find(s => current <= s.p);
+      if (msg) setBootStatus(msg.m);
+      if (current >= 100) {
+        clearInterval(interval);
+        setTimeout(() => setBooting(false), 500);
+      }
+    }, 40);
+  };
+
+  // ── CLOUD INFRASTRUCTURE UPLINK ───────────────────────────
+  useEffect(() => {
+    let cleanup;
+    const initCloud = async () => {
+      cleanup = await syncCloud();
+    };
+    initCloud();
+    return () => cleanup && cleanup();
+  }, [activeDomain, syncCloud]);
+
+  const [activePage, setActivePage] = useState('dash');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { ingestManualLog } = useAnomalyEngine({ signatures });
+  const { forecast } = useL2Forecaster({ feed, simulationMode, apiKey, selectedModel, liveMode, liveSpeed });
 
   const globeRef = useRef();
   const [countries, setCountries] = useState({ features: [] });
@@ -70,61 +183,53 @@ export default function AnomalyDetector() {
       }).catch(() => console.error("Map Data Synchronization Failed."));
   }, []);
 
-  useEffect(() => {
-    const handleResize = () => setDim({ w: window.innerWidth, h: window.innerHeight });
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
-  useEffect(() => { localStorage.setItem("anthropic_api_key", apiKey); }, [apiKey]);
-  useEffect(() => { localStorage.setItem("threatfox_api_key", threatFoxKey); }, [threatFoxKey]);
-  useEffect(() => { localStorage.setItem("otx_api_key", otxKey); }, [otxKey]);
-  useEffect(() => { localStorage.setItem("soc_signatures", JSON.stringify(signatures)); }, [signatures]);
+  useEffect(() => {
+    const handleMove = (e) => setMousePos({ x: e.clientX, y: e.clientY });
+    const handleResize = () => {
+      setDim({ w: window.innerWidth, h: window.innerHeight });
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   const filteredFeed = useMemo(() => feed.filter(f => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    if (q.includes("severity:critical")) return f.severity === "critical";
-    if (q.includes("is_anomaly:true")) return f.is_anomaly;
     return f.log.toLowerCase().includes(q) || f.threat_type.toLowerCase().includes(q);
   }), [feed, searchQuery]);
 
   const mapPoints = useMemo(() => {
-    if (activeDomain === "CYBER") return activeLayers.flatMap(l => LAYERS_DB[l] || []);
-    if (activeDomain === "FINANCE") return LAYERS_DB.centers; 
-    return [...LAYERS_DB.ddos, ...LAYERS_DB.malware]; 
-  }, [activeLayers, activeDomain]);
+    const points = [];
+    activeLayers.forEach(l => {
+      if (LAYERS_DB[l]) points.push(...LAYERS_DB[l]);
+    });
+    return points;
+  }, [activeLayers]);
 
-  const [activePage, setActivePage] = useState('dash');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // ── DYNAMIC THEMING ──────────────────────
-  const isAlertActive = feed[0]?.is_anomaly && (feed[0]?.severity === "critical" || feed[0]?.severity === "high");
   const themeClass = `theme-${activeDomain.toLowerCase()}`;
 
   const processOsintIntelligence = async () => {
     if(!osintText.trim()) return;
     setIsOsintParsing(true);
-    
     try {
       if (simulationMode || !apiKey) {
         await new Promise(r => setTimeout(r, 1500));
-        const newSig = { 
-          id: Date.now(), 
-          category: `OSINT [${osintText.slice(0, 12)}...]`, 
-          severity: "high", 
-          mitre: "T-OSINT", 
-          pattern: "extracted from raw intelligence", 
-          active: true 
-        };
-        setSignatures(prev => [...prev, newSig]);
+        setSignatures(prev => [...prev, { id: Date.now(), category: `OSINT [EXTRACTED]`, severity: "high", mitre: "T-OSINT", pattern: "Extracted", active: true }]);
       } else {
         const response = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
           body: JSON.stringify({ 
             model: selectedModel, max_tokens: 300, 
-            system: "You are an OSINT Intelligence Synthesizer. Extract security signatures and IOC patterns from the provided text. Return ONLY JSON: { \"category\": \"string\", \"mitre\": \"string\", \"pattern\": \"string\", \"severity\": \"high/medium/low\" }", 
-            messages: [{ role: "user", content: `Intelligence Feed: "${osintText}"` }] 
+            system: "Extract JSON: { \"category\", \"mitre\", \"pattern\", \"severity\" }", 
+            messages: [{ role: "user", content: osintText }] 
           })
         });
         const data = await response.json();
@@ -132,136 +237,200 @@ export default function AnomalyDetector() {
         const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
         setSignatures(prev => [...prev, { ...parsed, id: Date.now(), active: true }]);
       }
-    } catch(e) { console.error("OSINT Synthesis Failed", e); }
-    
-    setIsOsintParsing(false); 
-    setShowOsintPanel(false); 
-    setOsintText("");
+    } catch(e) { console.error(e); }
+    setIsOsintParsing(false); setShowOsintPanel(false); setOsintText("");
   };
 
+  if (!missionEngaged) return (
+    <Suspense fallback={<div style={{ background: '#0a0a0f', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--domain-primary)', fontFamily: 'monospace' }}>INITIALIZING...</div>}>
+      <SplashGate onEngage={handleEngage} />
+    </Suspense>
+  );
+
   return (
-    <div className={`wm-main-wrapper ${themeClass} ${isAlertActive ? 'alert-active' : ''}`}>
-      {/* ── PERSISTENT GLOBE LAYER (Z-INDEX: 0) ── */}
-      <div className="wm-globe-container" style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+    <ErrorBoundary>
+      <div className={`wm-main-wrapper ${themeClass}`}>
+      <motion.div 
+        className="custom-cursor"
+        style={{ left: mousePos.x, top: mousePos.y }}
+        animate={{ scale: isMobile ? 0 : 1 }}
+      />
+
+      <AnimatePresence>
+        {showBriefing && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', bottom: '80px', right: '32px', width: '300px', zIndex: 10006, pointerEvents: 'auto' }}
+          >
+             <div className="glass-panel" style={{ padding: '20px', border: '1px solid var(--domain-primary)', boxShadow: '0 0 30px var(--domain-glow)' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+                   <Activity size={16} color="var(--domain-primary)" />
+                   <span style={{ fontSize: '12px', fontWeight: 900, letterSpacing: '2px', color: 'white' }}>MISSION_BRIEFING</span>
+                </div>
+                <p style={{ fontSize: '10px', color: '#94a3b8', lineHeight: '1.6', marginBottom: '16px' }}>
+                  Operator, welcome to SENTINEL-ARM. Quadrants provide real-time telemetry. Toggle layers in the bottom-right legend to isolate threats.
+                </p>
+                <button 
+                  className="btn-console" 
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={() => { setShowBriefing(false); localStorage.setItem("soc_briefing_seen", "true"); }}
+                >
+                  ACKNOWLEDGE_MISSION
+                </button>
+             </div>
+          </motion.div>
+        )}
+
+        {booting && (
+          <motion.div 
+            key="boot"
+            exit={{ opacity: 0, scale: 1.1 }}
+            className="boot-wrapper"
+          >
+             <div className="boot-logo scanning">
+                <Target size={64} color="var(--domain-primary)" />
+             </div>
+             <div style={{ width: '320px', marginTop: '32px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '10px', color: 'var(--domain-primary)', fontWeight: 900, fontFamily: 'var(--mono-font)' }}>
+                  <span>{bootStatus}</span>
+                  <span>{bootProgress}%</span>
+                </div>
+                <div className="boot-bar">
+                    <div className="boot-progress" style={{ width: `${bootProgress}%` }} />
+                </div>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="wm-globe-container">
          <GlobeLayer 
            dim={dim} countries={countries} arcs={arcs} rings={rings} 
            mapPoints={mapPoints} liveMode={liveMode} globeRef={globeRef} 
-           activeDomain={activeDomain}
+           activeDomain={activeDomain} activeLayers={activeLayers}
          />
       </div>
 
-      {/* ── INTERACTIVE SIDEBAR NAVIGATION (Z-INDEX: 1002) ── */}
-      <Sidebar activePage={activePage} setActivePage={setActivePage} isSidebarOpen={isSidebarOpen} />
+      {!isMobile && (
+        <div style={{ gridArea: 'sidebar', pointerEvents: 'auto', zIndex: 10003 }}>
+          <Sidebar activePage={activePage} setActivePage={setActivePage} isSidebarOpen={isSidebarOpen} />
+        </div>
+      )}
       
-      {/* ── MAIN CONTENT HUB (Z-INDEX: 10) ── */}
-      <div className={`main ${isSidebarOpen ? 'expanded' : ''}`}>
-        <TopBar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} activePage={activePage} activeDomain={activeDomain} setActiveDomain={setActiveDomain} />
-        
-        <div className="content" style={{ padding: '24px', flexGrow: 1 }}>
-          
-          {activePage === 'dash' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', gap: '20px' }}>
-                 <StatsPanel activeDomain={activeDomain} signatures={signatures} simulationMode={simulationMode} proxyStatus={proxyStatus} />
-                 <ThreatHeatmap feed={feed} activeDomain={activeDomain} />
-              </div>
-              <div className="map-controls glass-panel" style={{ width: 'fit-content', padding: '8px', zIndex: 20 }}>
-                 <button className="nav-icon-btn" onClick={() => globeRef.current?.pointOfView({ lat: 38, lng: 127, altitude: 1.5 }, 1500)} title="Focus: Asia"><Target size={18} /></button>
-                 <button className="nav-icon-btn" onClick={() => globeRef.current?.pointOfView({ lat: 48, lng: 31, altitude: 1.5 }, 1500)} title="Focus: Europe"><Map size={18} /></button>
-                 <button className="nav-icon-btn" onClick={() => globeRef.current?.pointOfView({ lat: 0, lng: 0, altitude: 2.5 }, 1000)} title="Reset Globe"><Crosshair size={18} /></button>
-              </div>
-            </div>
-          )}
+      <div style={{ gridArea: 'header', pointerEvents: 'auto', zIndex: 10004 }}>
+        <TopBar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} activePage={activePage} />
+      </div>
 
-          {activePage === 'l2' && forecast && (
-            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-               <PredictivePanel forecast={forecast} />
-            </div>
-          )}
+      <div className="hud-layout-grid">
+          <AnimatePresence mode="wait">
+            {activePage === 'dash' && (
+              <>
+                {panels.stats && <div className="wm-hud-quadrant wm-hud-tl"><StatsPanel /></div>}
+                {panels.risk && <div className="wm-hud-quadrant wm-hud-tr"><RiskPanel /></div>}
+                
+                {!isMobile && panels.intel && <div className="wm-hud-quadrant wm-hud-bl"><IntelligencePanel /></div>}
+                {!isMobile && panels.layers && (
+                  <div className="wm-hud-quadrant wm-hud-br">
+                    <LayerLegend activeLayers={activeLayers} setActiveLayers={toggleLayer} />
+                  </div>
+                )}
+              </>
+            )}
 
-          {activePage === 'data' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '24px', height: 'calc(100vh - 120px)' }}>
-               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  <RiskPanel isAlertActive={isAlertActive} feed={feed} />
-                  <IntelligencePanel activeDomain={activeDomain} />
-               </div>
-               <DataLake filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeDomain={activeDomain} onTrackIp={(geoData) => {
-                 if(globeRef.current && geoData.lat) {
-                   globeRef.current.pointOfView({ lat: geoData.lat, lng: geoData.lon || geoData.lng, altitude: 0.8 }, 2000);
-                 }
-               }} />
-            </div>
-          )}
+            {activePage === 'l2' && (
+              <motion.div 
+                key="l2" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                style={{ gridArea: 'tl / tl / br / br', pointerEvents: 'auto', padding: '40px' }}
+              >
+                 <PredictivePanel forecast={forecast} />
+              </motion.div>
+            )}
 
-          {activePage === 'settings' && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '40px' }}>
-              <SettingsOverlay 
-                showSettings={true} 
-                setShowSettings={() => {}} 
-                simulationMode={simulationMode} 
-                setSimulationMode={setSimulationMode} 
-                liveSpeed={liveSpeed} 
-                setLiveSpeed={setLiveSpeed} 
-                apiKey={apiKey} 
-                setApiKey={setApiKey} 
-                threatFoxKey={threatFoxKey} 
-                setThreatFoxKey={setThreatFoxKey} 
-                otxKey={otxKey} 
-                setOtxKey={setOtxKey}
-              />
-            </div>
-          )}
+            {activePage === 'data' && (
+              <motion.div 
+                key="data" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                style={{ gridArea: 'tl / tl / br / br', pointerEvents: 'auto', display: 'grid', gridTemplateColumns: '400px 1fr', gap: '32px' }}
+              >
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', overflowY: 'auto' }} className="custom-scrollbar">
+                    <RiskPanel />
+                    <IntelligencePanel />
+                 </div>
+                 <DataLake filteredFeed={filteredFeed} anomalies={feed.filter(f => f.is_anomaly).length} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeDomain={activeDomain} onTrackIp={(geoData) => {
+                   if(globeRef.current) globeRef.current.pointOfView({ lat: geoData.lat, lng: geoData.lon || geoData.lng, altitude: 0.8 }, 2000);
+                 }} />
+              </motion.div>
+            )}
 
-          {activePage === 'archives' && (
-             <div className="glass-panel" style={{ padding: '0', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '24px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div className="panel-label" style={{ margin: 0 }}>Local Threat Archives // {feed.length} Records</div>
-                  <button className="nav-icon-btn" style={{ fontSize: '10px', padding: '4px 12px' }} onClick={() => { if(window.confirm("Purge local telemetry data?")) { localStorage.removeItem(`sentinel_feed_${activeDomain}`); window.location.reload(); } }}>PURGE DATA</button>
-                </div>
-                <div style={{ flexGrow: 1, overflowY: 'auto', padding: '10px' }}>
-                  {feed.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '100px', color: '#64748b' }}>No local telemetry found.</div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', color: '#94a3b8', fontSize: '12px' }}>
-                      <thead style={{ position: 'sticky', top: 0, background: 'var(--glass-bg)', zIndex: 5 }}>
+            {activePage === 'archives' && (
+               <motion.div 
+                  key="records"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="glass-panel" 
+                  style={{ height: 'calc(100vh - 180px)', display: 'flex', flexDirection: 'column' }}
+               >
+                  <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="panel-label" style={{ margin: 0 }}>LOCAL_THREAT_ARCHIVES // {feed.length}_RECORDS</div>
+                    <button className="btn-console" onClick={() => { if(window.confirm("Purge local telemetry?")) { useSentinelStore.getState().setFeed([]); window.location.reload(); } }}>PURGE_UPLINK</button>
+                  </div>
+                  <div style={{ flexGrow: 1, overflowY: 'auto', padding: '0 32px' }} className="custom-scrollbar">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', color: '#94a3b8', fontSize: '11px', fontFamily: 'var(--mono-font)' }}>
+                      <thead style={{ position: 'sticky', top: 0, background: 'var(--soc-bg)', zIndex: 5 }}>
                         <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
-                          <th style={{ padding: '12px' }}>TIMESTAMP</th>
-                          <th style={{ padding: '12px' }}>SEVERITY</th>
-                          <th style={{ padding: '12px' }}>TELEMETRY LOG</th>
-                          <th style={{ padding: '12px' }}>MITRE ATT&CK</th>
+                          <th style={{ padding: '20px 10px' }}>TIMESTAMP</th>
+                          <th style={{ padding: '20px 10px' }}>SEVERITY</th>
+                          <th style={{ padding: '20px 10px' }}>UNIT_LOG</th>
+                          <th style={{ padding: '20px 10px' }}>MITRE_TCODE</th>
                         </tr>
                       </thead>
                       <tbody>
                         {feed.map((f, i) => (
-                          <tr key={f.id || i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', background: f.is_anomaly ? 'rgba(244, 63, 94, 0.05)' : 'transparent' }}>
-                            <td style={{ padding: '12px', fontFamily: 'var(--mono-font)', color: 'white' }}>{new Date(f.ts).toLocaleString()}</td>
-                            <td style={{ padding: '12px' }}>
-                              <span style={{ 
-                                color: f.severity === 'critical' ? '#f43f5e' : f.severity === 'high' ? '#fbbf24' : '#94a3b8',
-                                fontWeight: 800, textTransform: 'uppercase', fontSize: '10px'
-                              }}>{f.severity}</span>
+                          <tr key={f.id || i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', background: f.is_anomaly ? 'rgba(244, 63, 94, 0.03)' : 'transparent' }}>
+                            <td style={{ padding: '15px 10px', color: 'white' }}>{new Date(f.ts).toISOString().replace('T', ' ').slice(0, 19)}</td>
+                            <td style={{ padding: '15px 10px' }}>
+                              <span style={{ color: f.severity === 'critical' ? 'var(--alert-red)' : f.severity === 'high' ? 'var(--domain-primary)' : '#64748b', fontWeight: 900 }}>{f.severity.toUpperCase()}</span>
                             </td>
-                            <td style={{ padding: '12px', opacity: 0.8 }}>{f.log}</td>
-                            <td style={{ padding: '12px', color: 'var(--soc-accent)' }}>{f.mitre_attack || 'N/A'}</td>
+                            <td style={{ padding: '15px 10px', opacity: 0.6 }}>{f.log.slice(0, 100)}...</td>
+                            <td style={{ padding: '15px 10px', color: 'var(--domain-primary)' }}>{f.mitre_attack || '----'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                  )}
-                </div>
-             </div>
-          )}
+                  </div>
+               </motion.div>
+            )}
 
-          {activePage === 'ingest' && (
-            <div style={{ marginTop: '20px' }}>
-              <LogIngestor onIngest={ingestManualLog} activeDomain={activeDomain} />
+            {activePage === 'ingest' && (
+              <motion.div key="ingest" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{ gridArea: 'tl / tl / br / br', pointerEvents: 'auto' }}>
+                <LogIngestor onIngest={ingestManualLog} activeDomain={activeDomain} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {/* Tactical Overlay Tools (Integrated) */}
+          {!isMobile && activePage === 'dash' && (
+            <div className="map-controls glass-panel" style={{ position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)', padding: '8px', zIndex: 10005, display: 'flex', gap: '8px', pointerEvents: 'auto' }}>
+              <button className="btn-console" style={{ padding: '8px' }} onClick={() => globeRef.current?.pointOfView({ lat: 38, lng: 127, altitude: 1.5 }, 1500)} title="Focus: Asia"><Target size={16} /></button>
+              <button className="btn-console" style={{ padding: '8px' }} onClick={() => globeRef.current?.pointOfView({ lat: 48, lng: 31, altitude: 1.5 }, 1500)} title="Focus: Europe"><Map size={16} /></button>
+              <button className="btn-console" style={{ padding: '8px' }} onClick={() => globeRef.current?.pointOfView({ lat: 0, lng: 0, altitude: 2.5 }, 1000)} title="Reset Globe"><Crosshair size={16} /></button>
             </div>
           )}
-          
-        </div>
       </div>
 
-      <OSINTModal showOsintPanel={showOsintPanel || activePage === 'osint'} setShowOsintPanel={(val) => { setShowOsintPanel(val); if(!val && activePage === 'osint') setActivePage('dash'); }} osintText={osintText} setOsintText={setOsintText} processOsintIntelligence={processOsintIntelligence} isOsintParsing={isOsintParsing} />
-    </div>
+      {isMobile && <MobileNav activePage={activePage} setActivePage={setActivePage} />}
+
+      <Suspense fallback={null}>
+        {activePage === 'osint' && (
+          <OSINTPanel onClose={() => setActivePage('dash')} />
+        )}
+      </Suspense>
+
+      <OSINTModal 
+        showOsintPanel={showOsintPanel} 
+        setShowOsintPanel={(val) => { setShowOsintPanel(val); }} 
+        osintText={osintText} setOsintText={setOsintText} 
+        processOsintIntelligence={processOsintIntelligence} isOsintParsing={isOsintParsing} 
+      />
+      </div>
+    </ErrorBoundary>
   );
 }

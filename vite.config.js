@@ -4,8 +4,8 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  // In production (GH Pages), set base to repo subpath. Locally use './'
-  base: mode === 'production' ? '/ai-soc-sentinel/' : './',
+  // Optimized for Vercel root deployment. 
+  base: './',
   build: {
     target: "es2020",
     chunkSizeWarningLimit: 2000,

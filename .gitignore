@@ -23,3 +23,4 @@ lint_*.txt
 *.njsproj
 *.sln
 *.sw?
+.vercel

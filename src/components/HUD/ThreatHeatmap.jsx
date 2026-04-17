@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 
-export function ThreatHeatmap({ feed, activeDomain }) {
+export function ThreatHeatmap({ feed, activeDomain: _activeDomain }) {
   // Generate a mock heatmap based on feed data and random fillers for visual weight
   const data = useMemo(() => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
