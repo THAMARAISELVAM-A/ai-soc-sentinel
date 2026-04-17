@@ -54,7 +54,7 @@ export function SplashGate({ onEngage }) {
           fontSize: '12px', color: '#0ea5e9', 
           fontWeight: 900, letterSpacing: '4px', marginBottom: '8px' 
         }}>
-          SENTINEL-ARM // TACTICAL OVERSIGHT
+          SENTINAL-ARM // TACTICAL OVERSIGHT
         </div>
         <div style={{ 
           fontSize: '48px', fontWeight: 900, color: 'white', 

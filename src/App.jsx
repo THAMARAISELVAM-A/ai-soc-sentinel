@@ -89,7 +89,7 @@ function Dashboard({ activePage, setActivePage }) {
             <Activity color="#0ea5e9" size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '18px', fontWeight: 900, color: 'white' }}>SENTINEL-ARM</div>
+            <div style={{ fontSize: '18px', fontWeight: 900, color: 'white' }}>SENTINAL-ARM</div>
             <div style={{ fontSize: '8px', color: '#0ea5e9', fontWeight: 900, letterSpacing: '1px' }}>MIL_INTEL_V2.0</div>
           </div>
         </div>
@@ -129,7 +129,7 @@ function Dashboard({ activePage, setActivePage }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
             <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#0ea5e9', letterSpacing: '2px' }}>
-              SENTINEL-ARM // {navItems.find(n => n.id === activePage)?.label}
+              SENTINAL-ARM // {navItems.find(n => n.id === activePage)?.label}
             </div>
             <div style={{ fontSize: '32px', fontWeight: 900, color: 'white' }}>
               {activePage === 'dash' && 'TACTICAL OVERVIEW'}
