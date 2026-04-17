@@ -1,9 +1,9 @@
 {
-  "name": "sentinel-arm",
+  "name": "sential-arm",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://ai-soc-sentinel.vercel.app/",
+  "homepage": "https://sential-arm.vercel.app/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
