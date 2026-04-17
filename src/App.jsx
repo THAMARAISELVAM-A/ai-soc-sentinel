@@ -1,16 +1,20 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { useState, Suspense, lazy } from 'react'
+import { useState, Suspense, lazy, useMemo } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { Activity, Database, Cpu, ShieldAlert, Terminal, ShieldCheck, Target, Globe as GlobeIcon, Satellite } from 'lucide-react'
+import { Activity, Database, Cpu, ShieldAlert, Terminal, ShieldCheck, Target, Globe as GlobeIcon, Satellite, Zap, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react'
 import './App.css'
 
 const SplashGate = lazy(() => import('./components/Core/SplashGate').then(m => ({ default: m.SplashGate || m })))
+const GlobeLayer = lazy(() => import('./components/Core/GlobeLayer').then(m => ({ default: m.GlobeLayer || m })))
 
 function Loading() {
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#010208', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9', fontFamily: 'monospace' }}>
-      LOADING...
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '14px', marginBottom: '16px' }}>INITIALIZING SENTINEL-ARM</div>
+        <RefreshCw className="spin" size={24} />
+      </div>
     </div>
   )
 }
@@ -24,8 +28,31 @@ function Dashboard({ activePage, setActivePage }) {
   const [query, setQuery] = useState('')
   const [isScanning, setIsScanning] = useState(false)
 
+  // Globe data
+  const arcs = useMemo(() => [
+    { startLat: 40.7, startLng: -74.0, endLat: 51.5, endLng: -0.1, color: '#0ea5e9' },
+    { startLat: 40.7, startLng: -74.0, endLat: 35.6, endLng: 139.6, color: '#f97316' },
+    { startLat: 40.7, startLng: -74.0, endLat: 1.3, endLng: 103.8, color: '#10b981' },
+    { startLat: 51.5, startLng: -0.1, endLat: 48.8, endLng: 2.3, color: '#0ea5e9' },
+  ], [])
+
+  const rings = useMemo(() => [
+    { lat: 40.7, lng: -74.0, color: '#ef4444' },
+    { lat: 51.5, lng: -0.1, color: '#f97316' },
+    { lat: 35.6, lng: 139.6, color: '#eab308' },
+  ], [])
+
+  const mapPoints = useMemo(() => [
+    { lat: 40.7, lng: -74.0 },
+    { lat: 51.5, lng: -0.1 },
+    { lat: 35.6, lng: 139.6 },
+    { lat: 1.3, lng: 103.8 },
+    { lat: 48.8, lng: 2.3 },
+  ], [])
+
   const navItems = [
     { id: 'dash', label: 'TACTICAL_HUD', icon: <Target size={16} /> },
+    { id: 'globe', label: 'GLOBAL_VIEW', icon: <GlobeIcon size={16} /> },
     { id: 'data', label: 'INTEL_STREAM', icon: <Database size={16} /> },
     { id: 'l2', label: 'PREDICTIVE_AI', icon: <Cpu size={16} /> },
     { id: 'sat', label: 'SAT_NETWORK', icon: <Satellite size={16} /> },
@@ -41,9 +68,11 @@ function Dashboard({ activePage, setActivePage }) {
       source: 'OSINT_SCAN',
       query: query,
       results: [
-        { type: 'DOMAIN', data: `${query}.com` },
+        { type: 'DOMAIN', data: `${query}.com - RESOLVED` },
         { type: 'WHOIS', data: 'Registrar: Cloudflare' },
-        { type: 'SSL', data: 'TLS 1.3 valid' },
+        { type: 'SSL', data: 'TLS 1.3 valid, expires 89 days' },
+        { type: 'GEOLOCATION', data: 'United States' },
+        { type: 'PORTS', data: '80, 443, 22 open' },
       ],
       timestamp: new Date().toISOString()
     }, ...prev])
@@ -61,7 +90,7 @@ function Dashboard({ activePage, setActivePage }) {
           </div>
           <div>
             <div style={{ fontSize: '18px', fontWeight: 900, color: 'white' }}>SENTINEL-ARM</div>
-            <div style={{ fontSize: '8px', color: '#0ea5e9', fontWeight: 900, letterSpacing: '1px' }}>MIL_INTEL_V1.0</div>
+            <div style={{ fontSize: '8px', color: '#0ea5e9', fontWeight: 900, letterSpacing: '1px' }}>MIL_INTEL_V2.0</div>
           </div>
         </div>
         
@@ -104,6 +133,7 @@ function Dashboard({ activePage, setActivePage }) {
             </div>
             <div style={{ fontSize: '32px', fontWeight: 900, color: 'white' }}>
               {activePage === 'dash' && 'TACTICAL OVERVIEW'}
+              {activePage === 'globe' && 'GLOBAL INTELLIGENCE'}
               {activePage === 'data' && 'INTEL STREAM'}
               {activePage === 'l2' && 'PREDICTIVE AI'}
               {activePage === 'sat' && 'SATELLITE NETWORK'}
@@ -145,6 +175,24 @@ function Dashboard({ activePage, setActivePage }) {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* 3D GLOBE */}
+        {activePage === 'globe' && (
+          <div style={{ height: 'calc(100vh - 200px)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(14, 165, 233, 0.3)', background: '#000' }}>
+            <Suspense fallback={<Loading />}>
+              <GlobeLayer 
+                dim={{ w: window.innerWidth - 344, h: window.innerHeight - 200 }}
+                countries={{ features: [] }}
+                arcs={arcs}
+                rings={rings}
+                mapPoints={mapPoints}
+                liveMode={true}
+                activeDomain="CYBER"
+                activeLayers={["military"]}
+              />
+            </Suspense>
           </div>
         )}
 
