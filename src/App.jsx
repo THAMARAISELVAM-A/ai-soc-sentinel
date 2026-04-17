@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Target, Map, Crosshair } from "lucide-react";
-
 import * as topojson from "topojson-client";
 
 import "./App.css";
@@ -23,6 +22,7 @@ import { StatsPanel } from "./components/HUD/StatsPanel.jsx";
 import { SettingsOverlay } from "./components/Modals/SettingsOverlay.jsx";
 import { OSINTModal } from "./components/Modals/OSINTModal.jsx";
 import { LogIngestor } from "./components/UIPanels/LogIngestor.jsx";
+import { ThreatHeatmap } from "./components/HUD/ThreatHeatmap.jsx";
 
 export default function AnomalyDetector() {
   const [apiKey, setApiKey] = useState(() => localStorage.getItem("anthropic_api_key") || "");
@@ -30,7 +30,10 @@ export default function AnomalyDetector() {
   const [otxKey, setOtxKey] = useState(() => localStorage.getItem("otx_api_key") || "");
 
   const [dim, setDim] = useState({ w: window.innerWidth, h: window.innerHeight });
-  const [signatures, setSignatures] = useState(DEFAULT_SIGNATURES);
+  const [signatures, setSignatures] = useState(() => {
+    const saved = localStorage.getItem("soc_signatures");
+    return saved ? JSON.parse(saved) : DEFAULT_SIGNATURES;
+  });
   const [selectedModel] = useState("claude-3-5-sonnet-20241022");
   const [showOsintPanel, setShowOsintPanel] = useState(false);
   const [osintText, setOsintText] = useState("");
@@ -76,6 +79,7 @@ export default function AnomalyDetector() {
   useEffect(() => { localStorage.setItem("anthropic_api_key", apiKey); }, [apiKey]);
   useEffect(() => { localStorage.setItem("threatfox_api_key", threatFoxKey); }, [threatFoxKey]);
   useEffect(() => { localStorage.setItem("otx_api_key", otxKey); }, [otxKey]);
+  useEffect(() => { localStorage.setItem("soc_signatures", JSON.stringify(signatures)); }, [signatures]);
 
   const filteredFeed = useMemo(() => feed.filter(f => {
     if (!searchQuery.trim()) return true;
@@ -101,18 +105,44 @@ export default function AnomalyDetector() {
   const processOsintIntelligence = async () => {
     if(!osintText.trim()) return;
     setIsOsintParsing(true);
-    if (simulationMode || !apiKey) {
-      await new Promise(r => setTimeout(r, 1500));
-      setSignatures(prev => [...prev, { id: Date.now(), category: "OSINT Auto-Discovered", severity: "critical", mitre: "T-AUTO", pattern: "Dynamic pattern", active: true }]);
-    }
-    setIsOsintParsing(false); setShowOsintPanel(false); setOsintText("");
+    
+    try {
+      if (simulationMode || !apiKey) {
+        await new Promise(r => setTimeout(r, 1500));
+        const newSig = { 
+          id: Date.now(), 
+          category: `OSINT [${osintText.slice(0, 12)}...]`, 
+          severity: "high", 
+          mitre: "T-OSINT", 
+          pattern: "extracted from raw intelligence", 
+          active: true 
+        };
+        setSignatures(prev => [...prev, newSig]);
+      } else {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+          body: JSON.stringify({ 
+            model: selectedModel, max_tokens: 300, 
+            system: "You are an OSINT Intelligence Synthesizer. Extract security signatures and IOC patterns from the provided text. Return ONLY JSON: { \"category\": \"string\", \"mitre\": \"string\", \"pattern\": \"string\", \"severity\": \"high/medium/low\" }", 
+            messages: [{ role: "user", content: `Intelligence Feed: "${osintText}"` }] 
+          })
+        });
+        const data = await response.json();
+        const raw = data.content?.find(c => c.type === "text")?.text || "{}";
+        const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+        setSignatures(prev => [...prev, { ...parsed, id: Date.now(), active: true }]);
+      }
+    } catch(e) { console.error("OSINT Synthesis Failed", e); }
+    
+    setIsOsintParsing(false); 
+    setShowOsintPanel(false); 
+    setOsintText("");
   };
 
   return (
-    <div className={`wm-main-wrapper ${themeClass} ${isAlertActive ? 'alert-active' : ''}`} style={{ display: 'flex' }}>
-      
-      {/* Persist the globe behind everything */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, opacity: activePage === 'dash' ? 1 : 0.2, transition: 'opacity 0.6s', pointerEvents: activePage === 'dash' ? 'auto' : 'none' }}>
+    <div className={`wm-main-wrapper ${themeClass} ${isAlertActive ? 'alert-active' : ''}`}>
+      {/* ── PERSISTENT GLOBE LAYER (Z-INDEX: 0) ── */}
+      <div className="wm-globe-container" style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
          <GlobeLayer 
            dim={dim} countries={countries} arcs={arcs} rings={rings} 
            mapPoints={mapPoints} liveMode={liveMode} globeRef={globeRef} 
@@ -120,21 +150,20 @@ export default function AnomalyDetector() {
          />
       </div>
 
+      {/* ── INTERACTIVE SIDEBAR NAVIGATION (Z-INDEX: 1002) ── */}
       <Sidebar activePage={activePage} setActivePage={setActivePage} isSidebarOpen={isSidebarOpen} />
       
-      <div className={`main ${isSidebarOpen ? '' : 'expanded'}`} style={{ 
-        marginLeft: isSidebarOpen ? '240px' : '0', 
-        width: isSidebarOpen ? 'calc(100% - 240px)' : '100%', 
-        transition: 'all 0.3s ease', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto'
-      }}>
+      {/* ── MAIN CONTENT HUB (Z-INDEX: 10) ── */}
+      <div className={`main ${isSidebarOpen ? 'expanded' : ''}`}>
         <TopBar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} activePage={activePage} activeDomain={activeDomain} setActiveDomain={setActiveDomain} />
         
         <div className="content" style={{ padding: '24px', flexGrow: 1 }}>
           
           {activePage === 'dash' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', gap: '20px' }}>
                  <StatsPanel activeDomain={activeDomain} signatures={signatures} simulationMode={simulationMode} proxyStatus={proxyStatus} />
+                 <ThreatHeatmap feed={feed} activeDomain={activeDomain} />
               </div>
               <div className="map-controls glass-panel" style={{ width: 'fit-content', padding: '8px', zIndex: 20 }}>
                  <button className="nav-icon-btn" onClick={() => globeRef.current?.pointOfView({ lat: 38, lng: 127, altitude: 1.5 }, 1500)} title="Focus: Asia"><Target size={18} /></button>
@@ -184,9 +213,42 @@ export default function AnomalyDetector() {
           )}
 
           {activePage === 'archives' && (
-             <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--domain-primary)' }}>
-                <h2>No Historical Archives Found</h2>
-                <p style={{ opacity: 0.6, marginTop: '10px' }}>Historical telemetry requires an attached external S3 bucket.</p>
+             <div className="glass-panel" style={{ padding: '0', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '24px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="panel-label" style={{ margin: 0 }}>Local Threat Archives // {feed.length} Records</div>
+                  <button className="nav-icon-btn" style={{ fontSize: '10px', padding: '4px 12px' }} onClick={() => { if(window.confirm("Purge local telemetry data?")) { localStorage.removeItem(`sentinel_feed_${activeDomain}`); window.location.reload(); } }}>PURGE DATA</button>
+                </div>
+                <div style={{ flexGrow: 1, overflowY: 'auto', padding: '10px' }}>
+                  {feed.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '100px', color: '#64748b' }}>No local telemetry found.</div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', color: '#94a3b8', fontSize: '12px' }}>
+                      <thead style={{ position: 'sticky', top: 0, background: 'var(--glass-bg)', zIndex: 5 }}>
+                        <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
+                          <th style={{ padding: '12px' }}>TIMESTAMP</th>
+                          <th style={{ padding: '12px' }}>SEVERITY</th>
+                          <th style={{ padding: '12px' }}>TELEMETRY LOG</th>
+                          <th style={{ padding: '12px' }}>MITRE ATT&CK</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {feed.map((f, i) => (
+                          <tr key={f.id || i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', background: f.is_anomaly ? 'rgba(244, 63, 94, 0.05)' : 'transparent' }}>
+                            <td style={{ padding: '12px', fontFamily: 'var(--mono-font)', color: 'white' }}>{new Date(f.ts).toLocaleString()}</td>
+                            <td style={{ padding: '12px' }}>
+                              <span style={{ 
+                                color: f.severity === 'critical' ? '#f43f5e' : f.severity === 'high' ? '#fbbf24' : '#94a3b8',
+                                fontWeight: 800, textTransform: 'uppercase', fontSize: '10px'
+                              }}>{f.severity}</span>
+                            </td>
+                            <td style={{ padding: '12px', opacity: 0.8 }}>{f.log}</td>
+                            <td style={{ padding: '12px', color: 'var(--soc-accent)' }}>{f.mitre_attack || 'N/A'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
              </div>
           )}
 

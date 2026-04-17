@@ -31,6 +31,24 @@ export function useAnomalyEngine({
   const [proxyStatus, setProxyStatus] = useState("OFFLINE");
   const contextKeywords = useRef([]);
 
+  // ── LOCAL PERSISTENCE LAYER ──────────────────────────────────
+  useEffect(() => {
+    const savedFeed = localStorage.getItem(`sentinel_feed_${activeDomain}`);
+    if (savedFeed) {
+      try {
+        setFeed(JSON.parse(savedFeed).slice(0, 150));
+      } catch (e) {
+        console.warn("Failed to hydrate feed from storage", e);
+      }
+    }
+  }, [activeDomain]);
+
+  useEffect(() => {
+    if (feed.length > 0) {
+      localStorage.setItem(`sentinel_feed_${activeDomain}`, JSON.stringify(feed.slice(0, 150)));
+    }
+  }, [feed, activeDomain]);
+
   // ── LOCAL SENTINEL UPLINK (WebSocket) ─────────────────────────
   useEffect(() => {
     let socket;
@@ -43,27 +61,37 @@ export function useAnomalyEngine({
       };
 
       socket.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        console.log("Proxy Data Recv:", data.log);
-        const result = await analyzeLog(data.log);
-        setFeed(prev => [result, ...prev].slice(0, 150));
-        handleThreatVisuals(result);
+        const msg = JSON.parse(event.data);
+        
+        if (msg.type === "telemetry") {
+          const result = await analyzeLog(msg.data.log);
+          setFeed(prev => [result, ...prev].slice(0, 400));
+          handleThreatVisuals(result);
+        } else if (msg.type === "history") {
+          console.log("Syncing Historical Data:", msg.data.length, "records");
+          // History items are already analyzed or raw logs. 
+          // For now, we just prepend them if they aren't already there.
+          setFeed(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newLogs = msg.data.filter(h => !existingIds.has(h.id));
+            return [...newLogs, ...prev].slice(0, 400);
+          });
+        }
       };
 
       socket.onclose = () => {
         setProxyStatus("OFFLINE");
-        setTimeout(connect, 5000); // Retry every 5s
+        setTimeout(connect, 5000); 
       };
       
-      socket.onerror = (err) => {
-        console.warn("Local Sentinel Proxy not detected at ws://localhost:8888");
+      socket.onerror = () => {
         socket.close();
       };
     };
 
     connect();
     return () => socket && socket.close();
-  }, [apiKey, simulationMode]);
+  }, [apiKey, simulationMode, analyzeLog, handleThreatVisuals]);
 
   // ── LIVE CONTEXT: News headlines for simulation enrichment ─────
   useEffect(() => {
@@ -89,22 +117,41 @@ export function useAnomalyEngine({
     const active = signatures.filter(s => s.active);
     return `You are a World Monitor Intelligence Engine (${activeDomain} domain).
 CONTEXT: Cybersecurity, Global Markets, and Geopolitical instability.
-TASK: Analyze the provided intel string and return a JSON result.
+TASK: Analyze the provided telemetry log and return a JSON result.
 SIGNATURES: ${active.map(s => s.category).join(", ")}
-RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": "critical/high/medium/low/normal", "explanation": "string", "attacker_ip": "192.168.x.x string", "iocs": [] }`;
+REQUIREMENTS:
+1. Classify if it's an anomaly or normal traffic.
+2. If anomaly, map it to the MITRE ATT&CK framework (Technique Code).
+3. Identify the attacker source IP if visible.
+4. Provide a professional forensic explanation.
+
+RESPONSE JSON FORMAT:
+{
+  "is_anomaly": boolean,
+  "threat_type": "string",
+  "severity": "critical/high/medium/low/normal",
+  "mitre_attack": "T1XXX - Name",
+  "explanation": "string",
+  "attacker_ip": "IP string",
+  "iocs": ["string"]
+}
+DO NOT RETURN ANY OTHER TEXT OR MARKDOWN.`;
   }, [signatures, activeDomain]);
 
   const analyzeLog = useCallback(async (logText) => {
     if ((simulationMode || !apiKey) && !logText.includes("REAL_IOC")) {
       await new Promise(r => setTimeout(r, 400));
-      const isSus = /union|failed|curl|instability|crash|strike|military|breach|exploit|infiltrate/i.test(logText);
+      const isSus = /union|failed|curl|instability|crash|strike|military|breach|exploit|infiltrate|sql_inject|lfi_attempt|rce_staged|ssh_brute|cve-/i.test(logText);
+      const severity = isSus ? (Math.random() > 0.7 ? "critical" : "high") : "normal";
+      
       return { 
         is_anomaly: isSus, 
         threat_type: isSus ? `${activeDomain} ALERT` : "NORMAL TRAFFIC", 
-        severity: isSus ? (Math.random() > 0.7 ? "critical" : "high") : "normal", 
-        attacker_ip: isSus ? `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}` : (logText.match(/(\d{1,3}\.){3}\d{1,3}/)?.[0] || null),
+        severity: severity, 
+        mitre_attack: isSus ? "T1059 - Command and Scripting Interpreter" : null,
+        attacker_ip: isSus ? (logText.match(/(\d{1,3}\.){3}\d{1,3}/)?.[0] || `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`) : null,
         log: logText, ts: Date.now(), id: Date.now() + Math.random(),
-        explanation: isSus ? "Heuristic match for suspicious patterns in telemetry stream." : null
+        explanation: isSus ? "Pattern recognition identified a high-risk signature match in the telemetry stream." : null
       };
     }
     
@@ -133,7 +180,7 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
         log: logText, 
         ts: Date.now(), 
         id: Math.random(),
-        severity: parsed.severity?.toLowerCase() || "normal"
+        severity: (parsed.severity || "normal").toLowerCase()
       };
     } catch(e) { 
       console.error("AI Analysis Failed", e); 
@@ -145,23 +192,34 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
     if (result.is_anomaly) {
       const originURL = MOCK_COORD[Math.floor(Math.random() * MOCK_COORD.length)];
       const targetURL = LAYERS_DB.centers[Math.floor(Math.random() * LAYERS_DB.centers.length)] || MOCK_COORD[0];
-      setArcs(prev => [...prev, { startLat: originURL.lat, startLng: originURL.lng, endLat: targetURL.lat, endLng: targetURL.lng, color: SEV_COLOR[result.severity] }].slice(-25));
+      setArcs(prev => [...prev, { 
+        startLat: originURL.lat, 
+        startLng: originURL.lng, 
+        endLat: targetURL.lat, 
+        endLng: targetURL.lng, 
+        color: SEV_COLOR[result.severity] || SEV_COLOR.normal
+      }].slice(-30));
       
-      if (result.severity === "critical") {
-        setRings(prev => [...prev, { lat: targetURL.lat, lng: targetURL.lng, color: "#ef4444", maxR: 8 }].slice(-10));
+      if (result.severity === "critical" || result.severity === "high") {
+        setRings(prev => [...prev, { lat: targetURL.lat, lng: targetURL.lng, color: result.severity === 'critical' ? "#ef4444" : "#f59e0b", maxR: 8 }].slice(-15));
         
         try {
+          // Subtle audio ping
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           const ctx = new AudioContext();
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
+          
           osc.connect(gain);
           gain.connect(ctx.destination);
+          
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(800, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.3);
-          gain.gain.setValueAtTime(0.1, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          osc.frequency.setValueAtTime(result.severity === 'critical' ? 880 : 440, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.3);
+          
+          gain.gain.setValueAtTime(0.05, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+          
           osc.start();
           osc.stop(ctx.currentTime + 0.3);
         } catch { } 
@@ -171,7 +229,7 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
 
   const ingestManualLog = useCallback(async (text) => {
      const result = await analyzeLog(text);
-     setFeed(prev => [result, ...prev].slice(0, 150));
+     setFeed(prev => [result, ...prev].slice(0, 400));
      handleThreatVisuals(result);
      return result;
   }, [analyzeLog, handleThreatVisuals]);
@@ -198,6 +256,29 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
     return null;
   }, [threatFoxKey]);
 
+  // ── INITIAL FEED POPULATION (Instant WOW factor) ────────────────
+  useEffect(() => {
+    const saved = localStorage.getItem(`sentinel_feed_${activeDomain}`);
+    if (saved) return; // Already hydrated
+
+    const initialLogs = Array.from({ length: 15 }, (_, i) => {
+      const logs = (activeDomain === "CYBER") ? [...NORMAL_LOGS, ...ATTACK_LOGS] :
+                   (activeDomain === "FINANCE") ? ["SEC-OPS: INDEX VOLATILITY SYNC", "DEBT LIMIT NOMINAL", "MARKET STABLE", "LIQUIDITY SIGNAL"] :
+                   ["PATROL SECTOR-4 READY", "STABILITY SCORE 98%", "AIRSPACE CLEAR", "BORDER TELEMETRY"];
+      const logText = logs[Math.floor(Math.random() * logs.length)];
+      return { 
+        id: Date.now() - i * 1000, 
+        ts: Date.now() - i * 1000, 
+        is_anomaly: Math.random() > 0.8,
+        threat_type: Math.random() > 0.8 ? `${activeDomain} ALERT` : "NORMAL_TRAFFIC",
+        severity: Math.random() > 0.8 ? "high" : "normal",
+        log: logText,
+        attacker_ip: Math.random() > 0.8 ? `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}` : null
+      };
+    }).sort((a,b) => b.ts - a.ts);
+    setFeed(initialLogs);
+  }, [activeDomain]);
+
   useEffect(() => {
     if (!liveMode || proxyStatus === 'CONNECTED') return;
 
@@ -222,7 +303,7 @@ RESPONSE JSON: { "is_anomaly": true/false, "threat_type": "string", "severity": 
       }
 
       const result = await analyzeLog(log);
-      setFeed(prev => [result, ...prev].slice(0, 150));
+      setFeed(prev => [result, ...prev].slice(0, 400));
       handleThreatVisuals(result);
     }, liveSpeed);
 

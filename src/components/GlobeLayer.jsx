@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState } from "react";
 import Globe from "react-globe.gl";
+import * as THREE from "three";
 
 const DOMAIN_COLORS = {
   CYBER: "#3b82f6",
@@ -73,13 +74,24 @@ export function GlobeLayer({ dim, countries, arcs, rings, mapPoints, liveMode, g
     color: domainColor
   })), [mapPoints, domainColor]);
 
-  // Satellite trails — last positions as custom paths
+  // 🛰️ Trails: Glowing orbit paths
   const satTrails = useMemo(() => satellites.map(sat => ({
     coords: [
-      [sat.lat, sat.lng, sat.alt + 0.02],
-      [sat.lat - sat.speed * 0.5, ((sat.lng - sat.speed * 6) + 180) % 360 - 180, sat.alt + 0.02],
+      [sat.lat, sat.lng, sat.alt * 1.05],
+      [sat.lat - sat.speed * 4, ((sat.lng - sat.speed * 12) + 180) % 360 - 180, sat.alt * 1.05],
     ]
   })), [satellites]);
+
+  // 📡 Beams: Scanning beams from satellites to globe
+  const satBeams = useMemo(() => {
+    // Only show beams for a few satellites at a time to keep it clean
+    return satellites.filter((_, i) => (frameRef.current + i * 10) % 200 < 30).map(sat => ({
+      coords: [
+        [sat.lat, sat.lng, sat.alt],
+        [sat.lat, sat.lng, 0] // Beam hitting the surface
+      ]
+    }));
+  }, [satellites]);
 
   const ringHsl = useMemo(() => {
     if (activeDomain === 'FINANCE') return '38, 92%, 50%';
@@ -89,6 +101,7 @@ export function GlobeLayer({ dim, countries, arcs, rings, mapPoints, liveMode, g
 
   return (
     <div className="wm-globe-container" style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+      {/* ── MAIN GLOBE LAYER ── */}
       <Globe
         ref={globeRef}
         width={dim.w}
@@ -98,91 +111,106 @@ export function GlobeLayer({ dim, countries, arcs, rings, mapPoints, liveMode, g
         atmosphereColor={domainColor}
         atmosphereAltitude={0.2}
 
-        /* ── GLOBE SURFACE ── */
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+        /* ── PREMIUM SURFACE ── */
+        globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
         bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+        
+        /* ── DYNAMIC CLOUD LAYER (ALTITUDE: 1.01) ── */
+        customLayerData={[{ id: 'clouds' }]}
+        customThreeObject={() => {
+          const geometry = new THREE.SphereGeometry(100 * 1.018, 75, 75);
+          const material = new THREE.MeshPhongMaterial({
+            map: new THREE.TextureLoader().load('https://raw.githubusercontent.com/vasturiano/react-globe.gl/master/example/clouds/clouds.png'),
+            transparent: true,
+            opacity: 0.45,
+            side: THREE.BackSide 
+          });
+          return new THREE.Mesh(geometry, material);
+        }}
+        customThreeObjectUpdate={(obj) => {
+          obj.rotation.y += 0.00015; 
+        }}
 
-        /* ── HEX POLYGON GRID overlay (semi-transparent, from countries data) ── */
+        /* ── HEX GRID ── */
         hexPolygonsData={countries.features}
         hexPolygonResolution={3}
-        hexPolygonMargin={0.65}
-        hexPolygonColor={() => `color-mix(in srgb, ${domainColor} 18%, transparent)`}
-        hexPolygonAltitude={0.008}
+        hexPolygonMargin={0.7}
+        hexPolygonColor={() => `color-mix(in srgb, ${domainColor} 20%, transparent)`}
+        hexPolygonAltitude={0.005}
 
         /* ── ATTACK ARCS ── */
         arcsData={liveMode ? eliteArcs : []}
-        arcColor={(d) => d.color || (d.severity === 'critical' ? '#ef4444' : domainColor)}
-        arcAltitudeAutoscale={0.45}
-        arcDashLength={0.5}
+        arcColor={(d) => d.color || (d.severity === 'critical' ? '#f43f5e' : domainColor)}
+        arcAltitudeAutoscale={0.5}
+        arcDashLength={0.8}
         arcDashGap={3}
-        arcDashAnimateTime={1000}
-        arcStroke={0.6}
-        arcLabel={(d) => `<div style="background:rgba(0,0,0,0.9);padding:8px 12px;border-radius:6px;border:1px solid #ef4444;font-size:11px;color:white">${d.color?.includes('ef4444') ? '🔴 CRITICAL' : '⚠️ HIGH'} THREAT ARC</div>`}
+        arcDashAnimateTime={2500}
+        arcStroke={0.5}
 
         /* ── PULSE RINGS ── */
         ringsData={liveMode ? eliteRings : []}
-        ringColor={() => (t) => `hsla(${ringHsl}, ${0.85 * (1 - t)})`}
+        ringColor={() => (t) => `hsla(${ringHsl}, ${0.9 * (1 - t)})`}
         ringMaxRadius={6}
-        ringPropagationSpeed={3.5}
-        ringRepeatPeriod={700}
+        ringPropagationSpeed={2.5}
 
-        /* ── THREAT NODES (HTML pins) ── */
-        htmlElementsData={liveMode ? globeData.slice(-18) : []}
-        htmlElement={(d) => {
-          const el = document.createElement('div');
-          el.style.cssText = 'pointer-events: none; transform: translate(-50%, -100%);';
-          el.innerHTML = `
-            <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
-              <div style="
-                background: white; width: 8px; height: 8px; border-radius: 50%;
-                box-shadow: 0 0 16px ${domainColor}, 0 0 30px ${domainColor}55;
-                border: 2px solid ${domainColor}; animation: pulse 1.5s infinite;
-              "></div>
-              <div style="
-                background: rgba(1,2,4,0.95); border: 1px solid ${domainColor}55;
-                color: white; padding: 6px 12px; border-radius: 6px;
-                font-family: 'JetBrains Mono',monospace; font-size: 9px;
-                backdrop-filter: blur(12px); min-width: 100px; text-align:center;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.7);
-              ">
-                <div style="color:${domainColor};font-weight:900;letter-spacing:.12em;margin-bottom:3px;">${d.label || d.type || 'NODE'}</div>
-                <div style="opacity:0.4;font-size:8px;">ID: ${Math.random().toString(36).substr(2,6).toUpperCase()}</div>
-              </div>
-            </div>
-          `;
-          return el;
-        }}
+        /* ── SAT TRAILS & SCAN BEAMS ── */
+        pathsData={liveMode ? [...satTrails, ...satBeams] : []}
+        pathColor={(d) => d.coords.length === 2 && d.coords[1][2] === 0 ? `rgba(59, 130, 246, 0.4)` : `rgba(0, 207, 255, 0.08)`}
+        pathDashLength={(d) => d.coords.length === 2 && d.coords[1][2] === 0 ? 1 : 0.15}
+        pathDashGap={(d) => d.coords.length === 2 && d.coords[1][2] === 0 ? 0 : 0.02}
+        pathDashAnimateTime={8000}
+        pathStroke={(d) => d.coords.length === 2 && d.coords[1][2] === 0 ? 1.5 : 0.2}
 
-        /* ── SATELLITES (custom 3D pins at altitude) ── */
-        customLayerData={satellites}
-        customThreeObject={(sat) => {
-          const THREE = window.THREE;
-          if (!THREE) return null;
+        /* ── SATELLITE UNITS ── */
+        objectsData={satellites}
+        objectLat="lat"
+        objectLng="lng"
+        objectAltitude="alt"
+        objectThreeObject={(sat) => {
           const group = new THREE.Group();
-
-          // Satellite body (glowing cyan box)
           const color = sat.type === 'Recon' ? 0xff4444 : sat.type === 'ISS/LEO' ? 0x00ff88 : 0x00cfff;
-          const geo = new THREE.BoxGeometry(0.6, 0.18, 0.6);
-          const mat = new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.7 });
-          group.add(new THREE.Mesh(geo, mat));
+          
+          // Body
+          const body = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 0.3, 1.2),
+            new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 3 })
+          );
+          group.add(body);
 
-          // Solar panels (flat planes)
-          const panelGeo = new THREE.BoxGeometry(1.6, 0.04, 0.35);
-          const panelMat = new THREE.MeshLambertMaterial({ color: 0x2244aa, emissive: 0x1133aa, emissiveIntensity: 0.5 });
-          const panel = new THREE.Mesh(panelGeo, panelMat);
-          group.add(panel);
+          // Solar Wings
+          const wingGeo = new THREE.PlaneGeometry(4, 0.8);
+          const wingMat = new THREE.MeshLambertMaterial({ color: 0x112244, side: THREE.DoubleSide });
+          const wings = new THREE.Mesh(wingGeo, wingMat);
+          wings.rotation.x = Math.PI / 2;
+          group.add(wings);
+
+          // Radar Dish
+          const dishGeo = new THREE.ConeGeometry(0.4, 0.4, 16);
+          const dishMat = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+          const dish = new THREE.Mesh(dishGeo, dishMat);
+          dish.position.y = -0.4;
+          dish.rotation.x = Math.PI;
+          group.add(dish);
 
           return group;
         }}
-        customThreeObjectUpdate={(obj, sat) => {
-          const THREE = window.THREE;
-          if (!THREE || !globeRef.current) return;
-          Object.assign(obj.position, globeRef.current.getCoords(sat.lat, sat.lng, sat.alt));
+
+        /* ── DATA NODES (HTML) ── */
+        htmlElementsData={liveMode ? globeData.slice(-20) : []}
+        htmlElement={(d) => {
+          const el = document.createElement('div');
+          el.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+              <div style="width:12px;height:12px;border:2px solid ${domainColor};border-radius:50%;background:rgba(0,0,0,0.5);box-shadow:0 0 20px ${domainColor};"></div>
+              <div style="background:rgba(2,4,10,0.85);border:1px solid ${domainColor}88;color:white;padding:6px 12px;border-radius:8px;font-size:10px;margin-top:8px;backdrop-filter:blur(12px);white-space:nowrap;font-weight:700;letter-spacing:1px;box-shadow:0 10px 30px rgba(0,0,0,0.5)">
+                ${(d.label || 'NODE').toUpperCase()}
+              </div>
+            </div>`;
+          return el;
         }}
 
-        /* ── ROTATION ── */
         autoRotate={!liveMode}
-        autoRotateSpeed={0.35}
+        autoRotateSpeed={0.4}
       />
     </div>
   );

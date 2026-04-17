@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Activity, Shield } from 'lucide-react';
+import { Menu, Zap, Globe, Clock, ShieldCheck } from 'lucide-react';
 
 export function TopBar({ toggleSidebar, activePage, activeDomain, setActiveDomain }) {
   const titles = {
@@ -10,39 +10,72 @@ export function TopBar({ toggleSidebar, activePage, activeDomain, setActiveDomai
     'settings': 'System Configurations'
   };
 
+  const domainColors = {
+    'CYBER': '#3b82f6',
+    'FINANCE': '#fbbf24',
+    'GEOINT': '#34d399'
+  };
+
   return (
     <div className="top-bar" style={{
-      padding: '22px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      background: 'rgba(1, 2, 4, 0.92)', backdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 90,
-      borderBottom: '1px solid var(--glass-border)'
+      padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      background: 'rgba(2, 4, 10, 0.7)', backdropFilter: 'blur(40px) saturate(180%)', position: 'sticky', top: 0, zIndex: 1001,
+      borderBottom: '1px solid var(--glass-border)', boxShadow: '0 15px 50px rgba(0,0,0,0.6)'
     }}>
-      <div className="page-title" style={{ fontFamily: 'var(--heading-font)', fontSize: '26px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <button type="button" onClick={toggleSidebar} style={{ background: 'transparent', border: 'none', color: 'var(--domain-primary)', cursor: 'pointer' }}>
-          <Menu size={24} />
+      <div className="top-left" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <button className="nav-icon-btn" onClick={toggleSidebar}>
+           <Menu size={20} />
         </button>
-        <span>{titles[activePage] || 'Dashboard'}</span>
+        
+        <div style={{ height: '32px', width: '1px', background: 'var(--glass-border)' }}></div>
+
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+           <h1 style={{ fontFamily: 'var(--heading-font)', fontSize: '20px', fontWeight: 900, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+             <Globe size={20} color="var(--domain-primary)" />
+             AI SOC SENTINEL
+           </h1>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+             <span style={{ fontSize: '9px', color: 'var(--domain-primary)', fontWeight: 800, letterSpacing: '2px', opacity: 0.9 }}>
+               SEC-OPS V2.11 // CORE_MODULE: STABLE
+             </span>
+             <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--glass-border)' }}></div>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9px', color: '#64748b', fontWeight: 700 }}>
+               <Clock size={10} />
+               {new Date().toLocaleTimeString()} UTC
+             </div>
+           </div>
+        </div>
       </div>
       
-      <div className="top-nav-right" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'var(--glass-bg)', border: '1px solid var(--domain-primary)', borderRadius: '6px' }}>
-           <span style={{ color: 'var(--domain-primary)' }}>
-             {activeDomain === 'CYBER' ? <Shield size={16} /> : <Activity size={16} />}
-           </span>
-           <select 
-             value={activeDomain} 
-             onChange={(e) => setActiveDomain(e.target.value)}
-             style={{ 
-               background: 'transparent', border: 'none', color: 'white', 
-               fontSize: '12px', fontWeight: 800, letterSpacing: '0.1em', 
-               textTransform: 'uppercase', outline: 'none', cursor: 'pointer',
-               appearance: 'none', paddingRight: '12px'
-             }}
-           >
-             <option value="CYBER">CYBER DOMAIN</option>
-             <option value="FINANCE">FINANCE DOMAIN</option>
-             <option value="GEOINT">GEOINT DOMAIN</option>
-           </select>
-        </div>
+      <div className="top-nav-right" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+         <div style={{ display: 'flex', gap: '8px' }}>
+            {['CYBER', 'FINANCE', 'GEOINT'].map(domain => (
+              <button 
+                key={domain}
+                onClick={() => setActiveDomain(domain)}
+                style={{ 
+                  background: activeDomain === domain ? 'var(--domain-glow)' : 'transparent',
+                  border: `1px solid ${activeDomain === domain ? 'var(--domain-primary)' : 'var(--glass-border)'}`,
+                  color: activeDomain === domain ? 'white' : '#64748b',
+                  fontSize: '9px', fontWeight: 900, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer',
+                  transition: 'var(--transition-smooth)', letterSpacing: '1px'
+                }}
+              >
+                {domain}
+              </button>
+            ))}
+         </div>
+         
+         <div style={{ height: '30px', width: '1px', background: 'var(--glass-border)' }}></div>
+
+         <div style={{ 
+           display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 18px', 
+           background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', 
+           borderRadius: '12px', boxShadow: '0 0 20px rgba(16, 185, 129, 0.05)'
+         }}>
+            <ShieldCheck size={16} color="#10b981" />
+            <span style={{ fontSize: '10px', fontWeight: 900, color: 'white', letterSpacing: '1.5px' }}>THREAT DETECTION ACTIVE</span>
+         </div>
       </div>
     </div>
   );
