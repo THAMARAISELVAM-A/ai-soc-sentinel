@@ -133,26 +133,10 @@ export default function SentinelArm() {
   // ── MISSION ORCHESTRATION ──
   const handleEngage = () => {
     setMissionEngaged(true);
-    // Professional Military Boot Sequence
-    const statusMsgs = [
-      { p: 10, m: "MOUNTING_TACTICAL_DOMAINS" },
-      { p: 35, m: "CALIBRATING_NEURAL_VECTORS" },
-      { p: 65, m: "SYNCING_THREAT_SIGNATURES" },
-      { p: 90, m: "HARDENING_OSINT_GATEWAY" },
-      { p: 100, m: "SENTINEL-ARM_ACTIVE" }
-    ];
-
-    let current = 0;
-    const interval = setInterval(() => {
-      current += 2;
-      setBootProgress(current);
-      const msg = statusMsgs.find(s => current <= s.p);
-      if (msg) setBootStatus(msg.m);
-      if (current >= 100) {
-        clearInterval(interval);
-        setTimeout(() => setBooting(false), 500);
-      }
-    }, 40);
+    // Skip boot animation - go straight to app
+    setBooting(false);
+    setBootProgress(100);
+    setBootStatus("SENTINEL-ARM_ACTIVE");
   };
 
   // ── CLOUD INFRASTRUCTURE UPLINK ───────────────────────────
