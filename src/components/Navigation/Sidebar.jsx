@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { Target, ShieldAlert, Cpu, Activity, Database, Terminal, ShieldCheck } from 'lucide-react';
 
 /**

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Lock, Zap, Target, Activity } from 'lucide-react';
 
 /**

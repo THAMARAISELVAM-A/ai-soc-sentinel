@@ -76,6 +76,7 @@ export function OSINTPanel({ onClose }) {
     };
 
     const result = mockResults[toolId] || { result: "Scan completed", query };
+    // eslint-disable-next-line react-hooks/purity
     const timestamp = Date.now();
     setResults([{ toolId, query, data: result, timestamp }, ...results]);
     setIsScanning(false);
@@ -86,6 +87,7 @@ export function OSINTPanel({ onClose }) {
     if (!query.trim()) return;
     
     setIsScanning(true);
+    // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
     
     for (const tool of currentCategory.tools) {
