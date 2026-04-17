@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, lazy, Suspense, Component } from "react";
 import { Target, Map, Crosshair, Shield, Activity, AlertTriangle } from "lucide-react";
 import * as topojson from "topojson-client";
-import { AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 import "./App.css";
 
