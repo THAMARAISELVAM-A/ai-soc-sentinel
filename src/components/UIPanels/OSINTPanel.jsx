@@ -15,7 +15,7 @@ const CATEGORY_ICONS = {
   SOCIAL: Share2,
 };
 
-export function OSINTPanel({ onClose, onAddToFeed }) {
+export function OSINTPanel({ onClose }) {
   const [activeCategory, setActiveCategory] = useState("NETWORK");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -76,7 +76,8 @@ export function OSINTPanel({ onClose, onAddToFeed }) {
     };
 
     const result = mockResults[toolId] || { result: "Scan completed", query };
-    setResults([{ toolId, query, data: result, timestamp: Date.now() }, ...results]);
+    const timestamp = Date.now();
+    setResults([{ toolId, query, data: result, timestamp }, ...results]);
     setIsScanning(false);
     setSelectedTool(null);
   };
@@ -85,6 +86,7 @@ export function OSINTPanel({ onClose, onAddToFeed }) {
     if (!query.trim()) return;
     
     setIsScanning(true);
+    const now = Date.now();
     
     for (const tool of currentCategory.tools) {
       setSelectedTool(tool.id);
@@ -93,7 +95,7 @@ export function OSINTPanel({ onClose, onAddToFeed }) {
         toolId: tool.id,
         query,
         data: { scanned: true, tool: tool.name },
-        timestamp: Date.now()
+        timestamp: now + Math.random()
       }, ...prev]);
     }
     
