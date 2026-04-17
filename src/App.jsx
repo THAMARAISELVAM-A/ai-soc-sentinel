@@ -115,6 +115,7 @@ export default function SentinelArm() {
   const [missionEngaged, setMissionEngaged] = useState(false);
   const [bootStatus, setBootStatus] = useState("INITIALIZING_CORE");
   const [bootProgress, setBootProgress] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const [dim, setDim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [signatures, setSignatures] = useState(() => {
@@ -194,6 +195,8 @@ export default function SentinelArm() {
     };
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("resize", handleResize);
+    // Mark as loaded after initial setup
+    setTimeout(() => setIsLoaded(true), 100);
     return () => {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("resize", handleResize);
@@ -246,6 +249,24 @@ export default function SentinelArm() {
       <SplashGate onEngage={handleEngage} />
     </Suspense>
   );
+
+  // Show loading until everything is ready
+  if (!isLoaded) {
+    return (
+      <div style={{ 
+        width: '100vw', height: '100vh', background: '#010208', 
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'var(--domain-primary)', fontFamily: 'var(--mono-font)'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '12px', letterSpacing: '4px', marginBottom: '16px' }}>INITIALIZING</div>
+          <div style={{ width: '200px', height: '2px', background: 'rgba(255,255,255,0.1)' }}>
+            <div style={{ width: '30%', height: '100%', background: 'var(--domain-primary)', animation: 'slide 1s infinite' }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary>
